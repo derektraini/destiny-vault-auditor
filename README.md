@@ -60,6 +60,25 @@ See the docs in `docs/` for the product brief, source strategy, audit model, and
 - `docs/audit-model.md` - recommendation buckets and scoring logic.
 - `docs/codex-plugin-plan.md` - local plugin and artifact architecture.
 - `docs/research-snapshot-2026-06-10.md` - summary of the research and prototype findings so far.
+- `src/auditor/` - first local audit engine prototype.
+- `tests/fixtures/` - synthetic, non-personal CSV/JSON fixtures.
+
+## Local Smoke Test
+
+Run the synthetic fixture audit:
+
+```bash
+PYTHONPATH=src python -m auditor.cli \
+  --weapons-csv tests/fixtures/synthetic_dim_weapons.csv \
+  --destiny-report-json tests/fixtures/synthetic_destiny_report.json \
+  --out-dir outputs/demo
+```
+
+Run tests:
+
+```bash
+python -m unittest discover -s tests
+```
 
 ## Safety Note
 

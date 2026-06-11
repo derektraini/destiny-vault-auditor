@@ -1,0 +1,92 @@
+{
+  "manifestVersion": "synthetic-manifest",
+  "generatedAt": "2026-06-10T00:00:00.000Z",
+  "weapons": {
+    "1001": {
+      "hash": 1001,
+      "name": "Solar Friend",
+      "season": 28,
+      "source": ["trials"],
+      "sourceString": "Synthetic current source",
+      "isTiered": true,
+      "isCraftable": false,
+      "isUpdated": false,
+      "isEnhanceable": false,
+      "isAdept": false
+    },
+    "2001": {
+      "hash": 2001,
+      "name": "Old Rocket",
+      "season": 14,
+      "source": ["legacy"],
+      "sourceString": "Legacy synthetic source",
+      "isTiered": false,
+      "isCraftable": false,
+      "isUpdated": false,
+      "isEnhanceable": false,
+      "isAdept": false
+    },
+    "2002": {
+      "hash": 2002,
+      "name": "Old Rocket",
+      "season": 29,
+      "source": ["dungeon"],
+      "sourceString": "Synthetic S29 dungeon",
+      "isTiered": true,
+      "isCraftable": false,
+      "isUpdated": true,
+      "isEnhanceable": false,
+      "isAdept": false
+    },
+    "3001": {
+      "hash": 3001,
+      "name": "Crafted Workhorse",
+      "season": 23,
+      "source": ["raid"],
+      "sourceString": "Synthetic raid pattern",
+      "isTiered": false,
+      "isCraftable": true,
+      "isUpdated": false,
+      "isEnhanceable": true,
+      "isAdept": false
+    },
+    "4001": {
+      "hash": 4001,
+      "name": "PvP Comfort",
+      "season": 4,
+      "source": ["crucible"],
+      "sourceString": "Legacy Crucible",
+      "isTiered": false,
+      "isCraftable": false,
+      "isUpdated": false,
+      "isEnhanceable": false,
+      "isAdept": false
+    },
+    "4002": {
+      "hash": 4002,
+      "name": "PvP Comfort",
+      "season": 29,
+      "source": ["crucible"],
+      "sourceString": "Synthetic S29 Crucible",
+      "isTiered": true,
+      "isCraftable": false,
+      "isUpdated": true,
+      "isEnhanceable": false,
+      "isAdept": false
+    },
+    "5001": {
+      "hash": 5001,
+      "name": "Plain Old Thing",
+      "season": 12,
+      "source": ["world"],
+      "sourceString": "Legacy world drop",
+      "isTiered": false,
+      "isCraftable": false,
+      "isUpdated": false,
+      "isEnhanceable": false,
+      "isAdept": false
+    }
+  },
+  "perks": {},
+  "overlays": {}
+}
