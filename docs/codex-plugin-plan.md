@@ -42,16 +42,17 @@ The exact layout can change once implementation starts. The key is to keep the a
 
 ## Plugin Workflow
 
-1. User provides DIM CSV exports or a folder containing exports.
-2. Plugin asks whether to refresh public source data.
+1. User provides DIM weapon and armor CSV exports, or a folder containing exports.
+2. Plugin uses cached structured source data and asks whether to refresh current public/meta sources.
 3. Plugin runs the audit engine.
 4. Plugin generates:
    - `outputs/audit-summary.md`
    - `outputs/vault-review.html`
-   - `outputs/dim-import.csv`
    - `outputs/decisions.json`
-5. User reviews the HTML artifact.
-6. Plugin consumes the decision JSON and writes the final DIM import.
+5. User reviews the HTML artifact and exports reviewed decisions JSON.
+6. Plugin consumes the reviewed decision JSON and writes the final DIM import CSV.
+
+The MVP is DIM CSV only. OAuth, DIM Sync writes, and direct inventory actions are excluded from the core workflow.
 
 ## HTML Review Artifact
 
@@ -100,19 +101,18 @@ The plugin may:
 - Download public source data.
 - Generate local reports.
 - Generate DIM import CSVs.
-- Optionally use read-only Bungie OAuth later if the user configures it.
+- Store local, ignored run artifacts and preference profiles.
 
-## Future Read-Only Bungie Integration
+## Out Of MVP
 
-When ready, add optional Bungie OAuth for read-only inventory snapshots.
-
-Use only the minimum needed scope for private Destiny reads. The MVP should still support CSV-only operation so friends can use it without registering an app.
+Read-only Bungie OAuth may be useful later for convenience, but the current product decision is to keep the MVP CSV-only so it works for personal use and close friends without app registration.
 
 ## Implementation Phases
 
 ### Phase 1: File-Based Prototype
 
 - Parse DIM weapon CSV.
+- Parse DIM armor CSV.
 - Parse destiny.report weapon JSON.
 - Produce markdown summary and DIM import CSV.
 - Unit test scoring rules with synthetic fixtures.
@@ -124,7 +124,7 @@ Use only the minimum needed scope for private Destiny reads. The MVP should stil
 - Export decision JSON.
 - Regenerate final DIM CSV from reviewed decisions.
 
-### Phase 3: Armor
+### Phase 3: Armor Depth
 
 - Add Armor 3.0 archetype logic.
 - Support exotic armor build roles.
@@ -138,6 +138,5 @@ Use only the minimum needed scope for private Destiny reads. The MVP should stil
 
 ### Phase 5: Optional Live Data
 
-- Optional Bungie OAuth read-only snapshot.
 - Optional source refresh cache.
 - Optional Dia/DIM browser automation for import verification.

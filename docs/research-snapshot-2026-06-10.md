@@ -108,10 +108,10 @@ Why:
 - The HTML artifact can handle interactive human taste decisions.
 - The final output can remain a DIM import CSV.
 
-## Open Questions
+## Product Decisions As Of 2026-06-11
 
-- Should the first public-ish version support armor, or start with weapons only?
-- Should friend installs use DIM CSV only, or optional Bungie read-only OAuth?
-- Should the review artifact export final CSV directly, or hand decisions back to Codex for final generation?
-- How much community meta should be cached versus searched fresh each run?
-- Should personal preferences live in `decisions.json`, a local profile, or both?
+1. The MVP should cover both weapons and armor.
+2. The MVP should use DIM CSV exports/imports only.
+3. The HTML artifact should hand reviewed decisions back to Codex as JSON. Codex/plugin then generates the final DIM import CSV.
+4. Source strategy should use both cached structured data and fresh/current research when requested.
+5. Decisions and preferences should exist locally, but the exact split between run decisions and durable user preferences needs more design.

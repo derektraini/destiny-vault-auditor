@@ -10,5 +10,7 @@ build/
 
 # Keep real vault exports out of the repo.
 *.private.csv
+*.local.json
+.dva/
 vault-exports/
 dim-exports/

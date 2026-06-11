@@ -35,15 +35,18 @@ Existing tools are excellent at parts of this. DIM is the vault UI. destiny.repo
 4. The plugin writes:
    - `audit-summary.md`
    - `vault-review.html`
-   - `dim-import.csv`
    - `decisions.json`
-5. The user reviews edge cases in the HTML artifact.
-6. The user imports the final CSV into DIM manually.
+5. The user reviews edge cases in the HTML artifact and exports reviewed decisions.
+6. Codex/plugin consumes the reviewed decisions and writes the final `dim-import.csv`.
+7. The user imports the final CSV into DIM manually.
+
+The MVP input mode is DIM CSV only. Bungie OAuth and browser automation are out of the core path.
 
 ## Non-Goals For MVP
 
 - No dismantling, equipping, locking, unlocking, or transferring items.
 - No direct DIM Sync writes.
+- No Bungie OAuth requirement.
 - No hosted account service.
 - No raw vault CSV uploads to a third-party server.
 - No permanent storage of OAuth tokens.
@@ -54,6 +57,7 @@ Existing tools are excellent at parts of this. DIM is the vault UI. destiny.repo
 - The user can see the blast radius before any DIM import.
 - The tool distinguishes "junk now" from "keep until refarmed."
 - The tool protects crafted, high-level, exotic, and personally annotated items by default.
+- Weapons and armor are both represented in the same review flow.
 - The generated HTML artifact makes edge-case review faster than editing a spreadsheet.
 
 ## Product Tone

@@ -6,7 +6,7 @@ This tool should make source-backed recommendations. No single source should get
 
 ### Bungie API And Manifest
 
-Use for canonical item definitions, plugs, sockets, stats, collectibles, profile inventory, vendors, and activity definitions.
+Use for canonical item definitions, plugs, sockets, stats, collectibles, vendors, and activity definitions.
 
 Useful docs:
 
@@ -17,11 +17,11 @@ Relevant access model:
 
 - Public manifest data requires an API key.
 - Private Destiny 2 profile and vault reads use OAuth with `ReadDestinyInventoryAndVault`.
-- Write scopes and item actions should not be used for the MVP.
+- Private profile reads, write scopes, and item actions should not be used for the MVP.
 
 ### DIM CSV Export/Import
 
-Use for the first distribution version because it is simple, user-mediated, and reversible.
+Use for the MVP because it is simple, user-mediated, reversible, and works for close friends without Bungie app setup.
 
 Primary fields used in the prototype:
 

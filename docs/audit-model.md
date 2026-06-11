@@ -106,6 +106,17 @@ The tool should avoid deleting a user's only coverage for important roles:
 - PvP primary archetype coverage.
 - Champion coverage after Anti-Champion 2.0.
 
+### Armor Coverage
+
+Armor should be first-class in the same audit flow, not a separate later tool. Initial armor rules should protect:
+
+- Exotic armor with known build roles.
+- Armor 3.0 pieces that cover useful archetype/stat combinations.
+- Class items with rare, high-value, or build-defining combinations.
+- Pieces referenced by loadouts or personal notes.
+
+Armor comments should explain the build role or replacement reason in the same short style as weapons.
+
 ### Replacement Pressure
 
 Use destiny.report and manifest data to detect:

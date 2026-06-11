@@ -15,13 +15,13 @@ The plugin should generate:
 - A markdown summary for quick reading.
 - A local HTML review artifact for interactive decisions.
 - A DIM-compatible import CSV with proposed tags and comments.
-- A decision log JSON so future runs can remember user preferences without re-litigating every edge case.
+- A decision log JSON that Codex can consume to generate the final DIM import.
 
 ## Why Not A Hosted Website First?
 
 A hosted website would add privacy, authentication, and trust friction. The safer first version is local/file-based:
 
-1. User exports a DIM CSV or supplies a read-only Bungie snapshot.
+1. User exports DIM weapon and armor CSVs.
 2. Codex/plugin refreshes public source data.
 3. The audit engine stages recommendations.
 4. A local HTML artifact lets the user review edge cases.
@@ -50,6 +50,7 @@ The prototype proved that the workflow is viable:
 - destiny.report exposes a useful current weapon database with same-name version, tiered, craftable, updated, source, and season metadata.
 - A second-pass clean-slate audit is more useful than preserving existing DIM favorite/keep tags blindly.
 - A local HTML review artifact would be the right UI for resolving questions before producing the final DIM import.
+- The MVP should cover both weapons and armor, with the current code prototype starting on weapons first.
 
 See the docs in `docs/` for the product brief, source strategy, audit model, and Codex plugin plan.
 
