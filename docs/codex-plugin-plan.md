@@ -43,14 +43,15 @@ The exact layout can change once implementation starts. The key is to keep the a
 ## Plugin Workflow
 
 1. User provides DIM weapon and armor CSV exports, or a folder containing exports.
-2. Plugin uses cached structured source data and asks whether to refresh current public/meta sources.
-3. Plugin runs the audit engine.
-4. Plugin generates:
+2. Plugin shows a short pre-flight config: cleanup mode, investment threshold, locked item behavior, old-vs-new pressure, duplicate pruning, and PvP caution.
+3. Plugin uses cached structured source data and asks whether to refresh current public/meta sources.
+4. Plugin runs the audit engine.
+5. Plugin generates:
    - `outputs/audit-summary.md`
    - `outputs/vault-review.html`
    - `outputs/decisions.json`
-5. User reviews the HTML artifact and exports reviewed decisions JSON.
-6. Plugin consumes the reviewed decision JSON and writes the final DIM import CSV.
+6. User reviews the HTML artifact and exports reviewed decisions JSON.
+7. Plugin consumes the reviewed decision JSON and writes the final DIM import CSV.
 
 The MVP is DIM CSV only. OAuth, DIM Sync writes, and direct inventory actions are excluded from the core workflow.
 

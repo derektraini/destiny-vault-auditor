@@ -15,7 +15,7 @@ sys.path.insert(0, str(SRC))
 
 from auditor.destiny_report import load_destiny_report
 from auditor.dim_csv import read_csv
-from auditor.scoring import recommend
+from auditor.scoring import AuditConfig, recommend
 
 
 class AuditorTests(unittest.TestCase):
@@ -47,6 +47,14 @@ class AuditorTests(unittest.TestCase):
                     str(FIXTURES / "synthetic_destiny_report.json"),
                     "--out-dir",
                     str(out_dir),
+                    "--cleanup-mode",
+                    "aggressive",
+                    "--locked-behavior",
+                    "protect",
+                    "--old-vs-new",
+                    "prefer-new",
+                    "--low-power-below",
+                    "600",
                 ],
                 cwd=ROOT,
                 env={"PYTHONPATH": str(SRC)},
@@ -65,6 +73,26 @@ class AuditorTests(unittest.TestCase):
             self.assertEqual(by_name["Old Rocket"]["Tag"], "junk")
             self.assertIn("DVA: REPLACE-NOW", by_name["Old Rocket"]["Notes"])
             self.assertEqual(by_name["Crafted Workhorse"]["Tag"], "favorite")
+
+            decisions = (out_dir / "decisions.json").read_text(encoding="utf-8")
+            self.assertIn('"cleanup_mode": "aggressive"', decisions)
+            self.assertIn('"locked_behavior": "protect"', decisions)
+
+    def test_locked_behavior_can_protect_or_review(self) -> None:
+        _, rows = read_csv(FIXTURES / "synthetic_dim_weapons.csv")
+        index = load_destiny_report(FIXTURES / "synthetic_destiny_report.json")
+        row = rows[-1].copy()
+        row["Locked"] = "true"
+
+        protected = recommend(row, index, AuditConfig(locked_behavior="protect"))
+        self.assertEqual(protected.bucket, "protect")
+        self.assertEqual(protected.rank, "favorite")
+        self.assertIn("locked:protect", protected.signals)
+
+        review = recommend(row, index, AuditConfig(locked_behavior="review"))
+        self.assertEqual(review.bucket, "needs-review")
+        self.assertEqual(review.rank, "review")
+        self.assertIn("locked:review", review.signals)
 
 
 if __name__ == "__main__":

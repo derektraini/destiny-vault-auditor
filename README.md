@@ -59,6 +59,7 @@ See the docs in `docs/` for the product brief, source strategy, audit model, and
 - `docs/product-brief.md` - what this tool should become.
 - `docs/data-sources.md` - source ranking and integration notes.
 - `docs/audit-model.md` - recommendation buckets and scoring logic.
+- `docs/configuration-ux.md` - the light pre-flight config and review flow.
 - `docs/codex-plugin-plan.md` - local plugin and artifact architecture.
 - `docs/research-snapshot-2026-06-10.md` - summary of the research and prototype findings so far.
 - `src/auditor/` - first local audit engine prototype.
@@ -80,6 +81,30 @@ Run tests:
 ```bash
 python -m unittest discover -s tests
 ```
+
+## Light Audit Config
+
+The CLI supports a small pre-flight config instead of a large settings surface:
+
+```bash
+PYTHONPATH=src python -m auditor.cli \
+  --weapons-csv tests/fixtures/synthetic_dim_weapons.csv \
+  --destiny-report-json tests/fixtures/synthetic_destiny_report.json \
+  --out-dir outputs/demo \
+  --cleanup-mode clean-slate \
+  --locked-behavior review \
+  --old-vs-new balanced \
+  --pvp-caution balanced
+```
+
+Supported posture options:
+
+- `--cleanup-mode`: `gentle`, `clean-slate`, or `aggressive`.
+- `--locked-behavior`: `protect`, `review`, or `ignore`.
+- `--duplicate-pruning`: `keep-more`, `balanced`, or `prune-hard`.
+- `--old-vs-new`: `keep-bridges`, `balanced`, or `prefer-new`.
+- `--pvp-caution`: `cautious`, `balanced`, or `strict`.
+- `--low-power-below`: note low-power evidence without using it as a sole junk reason.
 
 ## Safety Note
 

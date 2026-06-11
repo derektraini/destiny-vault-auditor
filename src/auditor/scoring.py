@@ -63,9 +63,27 @@ HIGH_VALUE_TERMS = {
 
 @dataclass(frozen=True)
 class AuditConfig:
+    cleanup_mode: str = "clean-slate"
     high_level_threshold: int = 30
     invested_level_threshold: int = 20
-    clean_slate: bool = True
+    locked_behavior: str = "review"
+    duplicate_pruning: str = "balanced"
+    old_vs_new: str = "balanced"
+    pvp_caution: str = "balanced"
+    low_power_below: int = 0
+
+    @property
+    def summary(self) -> dict[str, str | int]:
+        return {
+            "cleanup_mode": self.cleanup_mode,
+            "high_level_threshold": self.high_level_threshold,
+            "invested_level_threshold": self.invested_level_threshold,
+            "locked_behavior": self.locked_behavior,
+            "duplicate_pruning": self.duplicate_pruning,
+            "old_vs_new": self.old_vs_new,
+            "pvp_caution": self.pvp_caution,
+            "low_power_below": self.low_power_below,
+        }
 
 
 @dataclass
@@ -78,6 +96,8 @@ class Recommendation:
     reason: str
     sources: list[str] = field(default_factory=list)
     current_tag: str = ""
+    rank: str = ""
+    signals: list[str] = field(default_factory=list)
 
     @property
     def comment(self) -> str:
@@ -97,13 +117,16 @@ def recommend(
     level = int_field(row, "Crafted Level")
     tier = int_field(row, "Tier")
     season = int_field(row, "Season")
+    power = int_field(row, "Power")
     perks = set(perk_names(row))
     rarity = row.get("Rarity", "")
+    notes = row.get("Notes") or ""
 
     sources = ["DIM CSV"]
+    signals = _intent_signals(row, config)
 
     if level > config.high_level_threshold:
-        return Recommendation(
+        return _rec(
             item_id=row_id,
             name=name,
             bucket="protect",
@@ -112,16 +135,17 @@ def recommend(
             reason=f"weapon level {level} is above {config.high_level_threshold}; preserve high-investment gear",
             sources=sources,
             current_tag=current_tag,
+            signals=signals,
         )
 
     if is_crafted(row):
         reason = "crafted/reshapeable weapon preserved"
         if level > config.invested_level_threshold:
             reason = f"crafted weapon level {level}; preserve and move on unless deliberately refarming"
-        return Recommendation(row_id, name, "protect", _preserve_tag(current_tag), "high", reason, sources, current_tag)
+        return _rec(row_id, name, "protect", _preserve_tag(current_tag), "high", reason, sources, current_tag, signals=signals)
 
     if rarity == "Exotic":
-        return Recommendation(
+        return _rec(
             row_id,
             name,
             "protect",
@@ -130,6 +154,20 @@ def recommend(
             "exotic weapon preserved by default",
             sources,
             current_tag,
+            signals=signals,
+        )
+
+    if _is_locked(row) and config.locked_behavior == "protect":
+        return _rec(
+            row_id,
+            name,
+            "protect",
+            _preserve_tag(current_tag),
+            "medium",
+            "locked in DIM; protected by audit configuration",
+            sources,
+            current_tag,
+            signals=signals,
         )
 
     combo_reason = _exact_combo_reason(perks)
@@ -138,49 +176,76 @@ def recommend(
         sources.append("destiny.report")
 
     if combo_reason and replacement:
-        return Recommendation(
+        if config.old_vs_new == "prefer-new" and config.cleanup_mode == "aggressive":
+            bucket = "needs-review"
+            confidence = "medium"
+            reason = f"{combo_reason}; strong roll, but aggressive mode prefers the newer/updated version. Best path: {replacement}"
+        else:
+            bucket = "keep-refarm"
+            confidence = "high"
+            reason = f"{combo_reason}; keep until a newer/updated version is earned. Best path: {replacement}"
+        return _rec(
             row_id,
             name,
-            "keep-refarm",
+            bucket,
             "keep",
-            "high",
-            f"{combo_reason}; keep until a newer/updated version is earned. Best path: {replacement}",
+            confidence,
+            reason,
             sources,
             current_tag,
+            signals=signals,
         )
 
     if combo_reason:
-        return Recommendation(row_id, name, "keep", "keep", "high", combo_reason, sources, current_tag)
+        return _rec(row_id, name, "keep", "keep", "high", combo_reason, sources, current_tag, signals=signals)
 
-    if "PVP" in (row.get("Notes") or "").upper() and perks & HIGH_VALUE_TERMS:
+    if "PVP" in notes.upper() and perks & HIGH_VALUE_TERMS:
         reason = "personal PvP note plus useful perk structure; preserve for feel-based testing"
         if replacement:
             reason += f"; newer/updated version exists. Best path: {replacement}"
-            return Recommendation(row_id, name, "keep-refarm", "keep", "medium", reason, sources, current_tag)
-        return Recommendation(row_id, name, "needs-review", "keep", "medium", reason, sources, current_tag)
+            return _rec(row_id, name, "keep-refarm", "keep", "medium", reason, sources, current_tag, signals=signals)
+        tag = "keep" if config.pvp_caution != "strict" else "archive"
+        return _rec(row_id, name, "needs-review", tag, "medium", reason, sources, current_tag, signals=signals)
 
     high_value_hits = sorted(perks & HIGH_VALUE_TERMS)
     if tier >= 5 and len(high_value_hits) >= 2:
         reason = f"Tier 5 roll with multiple useful terms ({', '.join(high_value_hits[:2])})"
         if replacement:
             reason += f"; keep until newer/updated replacement. Best path: {replacement}"
-            return Recommendation(row_id, name, "keep-refarm", "keep", "medium", reason, sources, current_tag)
-        return Recommendation(row_id, name, "keep", "keep", "medium", reason, sources, current_tag)
+            return _rec(row_id, name, "keep-refarm", "keep", "medium", reason, sources, current_tag, signals=signals)
+        return _rec(row_id, name, "keep", "keep", "medium", reason, sources, current_tag, signals=signals)
+
+    if _is_locked(row) and config.locked_behavior == "review":
+        reason = "locked in DIM but no standout current role found; confirm before changing"
+        if replacement:
+            reason += f". Newer/updated version exists. Best path: {replacement}"
+        return _rec(row_id, name, "needs-review", _preserve_tag(current_tag), "low", reason, sources, current_tag, signals=signals)
 
     if replacement:
-        return Recommendation(
+        tag = "junk"
+        bucket = "replace-now"
+        confidence = "high"
+        if config.cleanup_mode == "gentle" or config.old_vs_new == "keep-bridges":
+            tag = "keep"
+            bucket = "keep-refarm"
+            confidence = "medium"
+        reason = "no standout current role; newer/updated version exists"
+        if power and config.low_power_below and power <= config.low_power_below:
+            reason += f"; power {power} is below low-power review threshold"
+        return _rec(
             row_id,
             name,
-            "replace-now",
-            "junk",
-            "high",
-            f"no standout current role; newer/updated version exists. Best path: {replacement}",
+            bucket,
+            tag,
+            confidence,
+            f"{reason}. Best path: {replacement}",
             sources,
             current_tag,
+            signals=signals,
         )
 
     if tier >= 5 and high_value_hits:
-        return Recommendation(
+        return _rec(
             row_id,
             name,
             "needs-review",
@@ -189,22 +254,98 @@ def recommend(
             f"Tier 5 has one useful term ({high_value_hits[0]}) but needs human review",
             sources,
             current_tag,
+            signals=signals,
         )
 
-    return Recommendation(
+    if config.cleanup_mode == "gentle" and current_tag in {"favorite", "keep"}:
+        return _rec(
+            row_id,
+            name,
+            "needs-review",
+            current_tag,
+            "low",
+            "gentle mode preserves existing keep/favorite tag for human review",
+            sources,
+            current_tag,
+            signals=signals,
+        )
+
+    reason = "no standout perk combo, tier advantage, investment, or replacement bridge role found"
+    if power and config.low_power_below and power <= config.low_power_below:
+        reason += f"; power {power} is below low-power review threshold"
+    return _rec(
         row_id,
         name,
         "junk",
         "junk",
         "medium",
-        "no standout perk combo, tier advantage, investment, or replacement bridge role found",
+        reason,
         sources,
         current_tag,
+        signals=signals,
     )
+
+
+def _rec(
+    item_id: str,
+    name: str,
+    bucket: str,
+    tag: str,
+    confidence: str,
+    reason: str,
+    sources: list[str],
+    current_tag: str,
+    signals: list[str] | None = None,
+) -> Recommendation:
+    return Recommendation(
+        item_id=item_id,
+        name=name,
+        bucket=bucket,
+        tag=tag,
+        confidence=confidence,
+        reason=reason,
+        sources=sources,
+        current_tag=current_tag,
+        rank=_rank_for(bucket, tag),
+        signals=signals or [],
+    )
+
+
+def _rank_for(bucket: str, tag: str) -> str:
+    if bucket == "protect" or tag == "favorite":
+        return "favorite"
+    if bucket == "needs-review":
+        return "review"
+    if tag == "junk":
+        return "junk"
+    return "keep"
 
 
 def _preserve_tag(current_tag: str) -> str:
     return current_tag if current_tag in {"favorite", "keep"} else "keep"
+
+
+def _is_locked(row: dict[str, str]) -> bool:
+    value = (row.get("Locked") or row.get("Lock") or "").strip().lower()
+    return value in {"true", "yes", "y", "locked", "1"}
+
+
+def _intent_signals(row: dict[str, str], config: AuditConfig) -> list[str]:
+    signals: list[str] = []
+    if _is_locked(row):
+        signals.append(f"locked:{config.locked_behavior}")
+    current_tag = row.get("Tag") or ""
+    if current_tag:
+        signals.append(f"current-tag:{current_tag}")
+    notes = row.get("Notes") or ""
+    if notes:
+        signals.append("notes")
+    power = int_field(row, "Power")
+    if power and config.low_power_below and power <= config.low_power_below:
+        signals.append(f"low-power:{power}")
+    if (row.get("Holofoil") or "").lower() == "true":
+        signals.append("holofoil")
+    return signals
 
 
 def _exact_combo_reason(perks: set[str]) -> str:
