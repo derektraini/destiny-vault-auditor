@@ -89,6 +89,9 @@ Use for ambiguous cases:
 - Weapon type/frame.
 - Perks.
 - DIM tag and notes.
+- Locked state.
+- Power/light level.
+- Kill tracker or usage indicators when present.
 - Loadout membership.
 
 ### Role Coverage
@@ -128,6 +131,42 @@ Use destiny.report and manifest data to detect:
 - Known source/farm path.
 
 Replacement pressure should change the comment before it changes the tag. Strong old rolls should often become `keep until refarmed`, not immediate junk.
+
+### Friction And Intent Signals
+
+Some fields should change review priority and confidence more than final scoring. This prevents the tool from turning every vault detail into a separate decision lever.
+
+- Locked: treat as user intent. Do not auto-demote directly to `junk`; prefer `needs review` or a protected comment unless the user enables a strict cleanup mode.
+- Lowest power/light level: treat as weak evidence that an item is unused or easy to replace, but never as a sole junk reason.
+- Current DIM tag: treat as history, not truth. Existing `favorite` or `keep` should add context but should not protect non-crafted legendary weapons in clean-slate mode.
+- Existing DIM `junk`: keep as evidence, but still verify crafted state, level, roll quality, and role coverage before preserving the junk tag.
+- High kill count, memento, holofoil, Adept, personal note, or loadout membership: raise protection or review priority.
+
+The default UI should expose this as a single explanation, not a set of toggles. Example:
+
+`REVIEW - Weak duplicate, but locked and has PvP note; confirm before junking.`
+
+### Ranking Model
+
+The product should have an internal ranking system, but the user-facing model should stay simple.
+
+Recommended output levels:
+
+1. `favorite`: best-in-vault, build-defining, rare, or highly invested.
+2. `keep`: useful current role or strong bridge roll.
+3. `review`: conflicting evidence, personal intent, PvP feel roll, or source disagreement.
+4. `junk`: no role, no protection, and no meaningful replacement risk.
+
+Recommended internal dimensions:
+
+- Roll strength.
+- Role coverage.
+- Replacement pressure.
+- Investment/protection.
+- Source confidence.
+- Review friction.
+
+Only show the detailed dimensions in the HTML artifact when the user expands an item. The CSV comment should stay short.
 
 ## Comment Style
 

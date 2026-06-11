@@ -43,6 +43,16 @@ Primary fields used in the prototype:
 
 The MVP should continue to produce a DIM-compatible CSV rather than writing tags directly.
 
+Also preserve and inspect any DIM metadata that expresses user intent:
+
+- Locked state.
+- Current tag.
+- Notes.
+- Wishlist/triage annotations.
+- Kill trackers when present.
+- Power/light level.
+- Loadout references if available from an export path.
+
 ### destiny.report
 
 Use for old-vs-new replacement pressure.
@@ -86,6 +96,37 @@ Source:
 
 Use for exact perk behavior, hidden mechanics, cooldowns, scalar values, and practical effect descriptions. This should be treated as a high-quality mechanics source when available.
 
+### Curated Wishlists And Triage Notes
+
+Use curated wishlists, DIM wishlist notes, and triage panels as source-backed opinion layers. These sources are valuable because they often encode:
+
+- Intended role, such as PvE, PvP, utility, add clear, boss DPS, endgame, or minor spec.
+- Input context, such as M+KB or controller.
+- Recommended perk combinations.
+- Explanation for why a roll matters.
+- Source author, episode, guide, or publication date.
+
+Treat these as curated community evidence, not canonical truth. Current patch notes, manifest facts, and mechanics data should override stale wishlist guidance when they conflict.
+
+Example source shape:
+
+```json
+{
+  "source": "wishlist",
+  "source_name": "PodvsEnemies episode 129 / Saint_Kabr / ImpetusAlways / CourtProjects",
+  "source_date": "2024-02-04",
+  "contexts": ["PvE", "PvE-Utility", "PvE-EndGame", "MinorSpec"],
+  "input_devices": ["M+KB", "Controller"],
+  "recommended_combos": [
+    ["Reciprocity", "Circle of Life"],
+    ["Reciprocity", "Attrition Orbs"],
+    ["Reciprocity", "Frenzy"]
+  ]
+}
+```
+
+Wishlist matches should improve the recommendation and comment quality. They should not silently protect a bad or obsolete roll forever.
+
 ### Patch Notes
 
 Patch notes should override stale community consensus.
@@ -111,6 +152,7 @@ These are useful but should not be treated as truth by themselves:
 - YouTube creator meta videos.
 - Reddit/X discussion.
 - Raid/dungeon/trials usage trends.
+- Trials/PvP usage data and input-specific creator guidance.
 
 These sources can answer "what are players excited about?" but not always "what is actually best for this vault?"
 
@@ -121,7 +163,8 @@ These sources can answer "what are players excited about?" but not always "what 
 3. destiny.report current weapon metadata.
 4. D2Foundry / Clarity-style mechanics and perk data.
 5. User vault metadata: crafted state, weapon level, notes, kill counts, holofoil, loadouts.
-6. Community meta and popularity.
+6. Curated wishlist/triage notes with dates and provenance.
+7. Community meta and popularity.
 
 ## Provenance Requirement
 

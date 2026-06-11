@@ -21,6 +21,8 @@ Destiny 2 vault cleanup is hard because the correct answer is not just "what is 
 
 Existing tools are excellent at parts of this. DIM is the vault UI. destiny.report and D2Foundry are great for current weapon data. light.gg and creators are useful for meta signal. The missing piece is a personal, explainable decision layer that can say why each item should stay, go, or be refarmed.
 
+The tool should avoid choice paralysis. It can use many signals internally, but the default experience should be a small set of clear buckets with short explanations and expandable evidence.
+
 ## Target Users
 
 - Primary: the repo owner and close friends.
@@ -58,6 +60,7 @@ The MVP input mode is DIM CSV only. Bungie OAuth and browser automation are out 
 - The tool distinguishes "junk now" from "keep until refarmed."
 - The tool protects crafted, high-level, exotic, and personally annotated items by default.
 - Weapons and armor are both represented in the same review flow.
+- Advanced signals such as locked state, low power level, wishlists, kill trackers, and community meta improve confidence without becoming required manual choices.
 - The generated HTML artifact makes edge-case review faster than editing a spreadsheet.
 
 ## Product Tone
