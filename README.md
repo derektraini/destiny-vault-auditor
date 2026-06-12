@@ -18,11 +18,13 @@ Works today:
 
 Planned:
 
-- Deeper Armor 3.0 archetype/build scoring.
+- Import reviewed HTML decisions back into final CSV generation.
 - Duplicate grouping.
 - Wishlist/triage source ingestion.
+- Deeper Armor 3.0 archetype/build scoring.
 - Codex plugin packaging.
-- Import reviewed HTML decisions back into final CSV generation.
+
+See `docs/roadmap.md` for the recommended build order and acceptance criteria.
 
 ## Setup
 
@@ -181,6 +183,7 @@ Armor scoring is intentionally cautious. It protects/reviews more than it junks 
 - `docs/configuration-ux.md`: light config UX.
 - `docs/codex-plugin-plan.md`: plugin plan.
 - `docs/friend-testing.md`: short share guide for testers.
+- `docs/roadmap.md`: planned work with build order and acceptance criteria.
 
 ## Safety
 

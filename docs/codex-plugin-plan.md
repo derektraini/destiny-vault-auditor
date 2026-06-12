@@ -110,6 +110,14 @@ Read-only Bungie OAuth may be useful later for convenience, but the current prod
 
 ## Implementation Phases
 
+See `docs/roadmap.md` for the current recommended build order. The short version:
+
+1. Reviewed decisions to final CSV.
+2. Duplicate grouping.
+3. Wishlist/triage ingestion.
+4. Armor depth.
+5. Codex plugin packaging.
+
 ### Phase 1: File-Based Prototype
 
 - Parse DIM weapon CSV.
@@ -118,26 +126,32 @@ Read-only Bungie OAuth may be useful later for convenience, but the current prod
 - Produce markdown summary and DIM import CSV.
 - Unit test scoring rules with synthetic fixtures.
 
-### Phase 2: Review Artifact
+### Phase 2: Review Loop
 
 - Generate `vault-review.html`.
 - Add interactive filters and decision toggles.
 - Export decision JSON.
 - Regenerate final DIM CSV from reviewed decisions.
 
-### Phase 3: Armor Depth
+### Phase 3: Cleanup Intelligence
+
+- Add duplicate grouping.
+- Add wishlist/triage source ingestion.
+- Add source confidence and stale-source handling.
+
+### Phase 4: Armor Depth
 
 - Add Armor 3.0 archetype logic.
 - Support exotic armor build roles.
 - Add duplicate class item cleanup.
 
-### Phase 4: Codex Plugin Packaging
+### Phase 5: Codex Plugin Packaging
 
 - Add `.codex-plugin/plugin.json`.
 - Add skill instructions.
 - Provide clear prompts/commands for Codex Web.
 
-### Phase 5: Optional Live Data
+### Phase 6: Optional Live Data
 
 - Optional source refresh cache.
 - Optional Dia/DIM browser automation for import verification.
