@@ -1,0 +1,35 @@
+{
+  "name": "destiny-vault-auditor",
+  "version": "0.1.0",
+  "description": "Local-first Codex workflow for auditing Destiny 2 DIM vault exports.",
+  "author": {
+    "name": "Derek Traini"
+  },
+  "repository": "https://github.com/derektraini/destiny-vault-auditor",
+  "license": "MIT",
+  "keywords": [
+    "destiny-2",
+    "dim",
+    "vault",
+    "audit"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Destiny Vault Auditor",
+    "shortDescription": "Audit DIM vault exports with local review artifacts.",
+    "longDescription": "Run the local Destiny Vault Auditor workflow from Codex using user-provided DIM weapon and armor CSV exports, optional public source files, editable HTML review artifacts, and final DIM metadata CSV output.",
+    "developerName": "Derek Traini",
+    "category": "Productivity",
+    "capabilities": [
+      "Local Files",
+      "Reports",
+      "CLI"
+    ],
+    "defaultPrompt": [
+      "Audit my DIM vault exports.",
+      "Generate a Destiny vault review artifact.",
+      "Apply reviewed decisions to a DIM CSV."
+    ],
+    "brandColor": "#6D5DF6"
+  }
+}

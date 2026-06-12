@@ -11,6 +11,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
 FIXTURES = ROOT / "tests" / "fixtures"
+PLUGIN = ROOT / "plugin" / "destiny-vault-auditor"
 
 sys.path.insert(0, str(SRC))
 
@@ -452,6 +453,29 @@ class AuditorTests(unittest.TestCase):
         )
 
         self.assertIn("Audit DIM weapon and armor CSVs", result.stdout)
+
+    def test_plugin_scaffold_wraps_local_cli(self) -> None:
+        manifest_path = PLUGIN / ".codex-plugin" / "plugin.json"
+        skill_path = PLUGIN / "skills" / "destiny-vault-auditor" / "SKILL.md"
+        wrapper_path = PLUGIN / "scripts" / "audit_vault.py"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(manifest["name"], "destiny-vault-auditor")
+        self.assertEqual(manifest["skills"], "./skills/")
+        self.assertIn("defaultPrompt", manifest["interface"])
+        self.assertTrue(skill_path.exists())
+        self.assertIn("Do not use DIM Sync writes", skill_path.read_text(encoding="utf-8"))
+
+        result = subprocess.run(
+            [sys.executable, str(wrapper_path), "--help"],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=True,
+        )
+
+        self.assertIn("Audit DIM weapon and armor CSVs", result.stdout)
+        self.assertIn("--wishlist-source", result.stdout)
 
 
 if __name__ == "__main__":

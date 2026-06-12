@@ -4,7 +4,7 @@ This roadmap turns the remaining planned items into buildable milestones. The go
 
 ## Recommended Order
 
-1. Codex plugin packaging.
+All MVP workflow milestones are implemented. Future passes should focus on optional source refresh helpers, richer source curation, and local usability polish.
 
 ## Completed: Reviewed Decisions To Final CSV
 
@@ -90,17 +90,18 @@ Acceptance criteria:
 - Low-stat, low-rated, unlocked, unnoted legendary armor can become `junk`.
 - Useful set pieces with weak stats become `needs-review`, not blind keep.
 
-## 5. Codex Plugin Packaging
+## Completed: Codex Plugin Packaging
 
-Why last: packaging should wrap a reliable local workflow. It should not hide rough edges before the CLI and review loop are trustworthy.
+Status: implemented.
 
-First useful version:
+Why it mattered: packaging wraps the reliable local workflow without hiding safety constraints.
 
-- Add plugin metadata and a skill wrapper.
-- Provide a single Codex entrypoint that asks for DIM exports and optional source files.
-- Run the CLI safely.
-- Open or link the generated review artifact.
-- Point users at the final `dim-import.csv`.
+Implemented:
+
+- Added repo-local plugin metadata in `plugin/destiny-vault-auditor/.codex-plugin/plugin.json`.
+- Added a `destiny-vault-auditor` skill wrapper with safety instructions and first/second-pass commands.
+- Added `plugin/destiny-vault-auditor/scripts/audit_vault.py` to delegate to the existing no-install CLI.
+- Documented that the plugin still uses local CSV exports, local outputs, and manual DIM import.
 
 Acceptance criteria:
 

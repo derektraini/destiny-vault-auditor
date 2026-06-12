@@ -17,11 +17,12 @@ Works today:
 - Light audit config for cleanup posture.
 - Duplicate weapon/armor grouping with a visible HTML duplicate queue.
 - Editable HTML review decisions can be imported back into a final DIM CSV.
+- Repo-local Codex plugin scaffold and skill wrapper.
 - Output files: `dim-import.csv`, `audit-summary.md`, `decisions.json`, `vault-review.html`.
 
 Planned:
 
-- Codex plugin packaging.
+- Optional source refresh helpers.
 
 See `docs/roadmap.md` for the recommended build order and acceptance criteria.
 
@@ -187,6 +188,18 @@ Recommended first real pass:
 - `audit-summary.md`: counts, config, buckets, and recommendations.
 - `decisions.json`: structured recommendations, duplicate group metadata, source inputs, and run config.
 - `vault-review.html`: local review artifact with filters, ranks, duplicate queue, sources, and signal chips.
+
+## Codex Plugin
+
+The repo includes a local plugin scaffold under `plugin/destiny-vault-auditor/`.
+
+The plugin contributes a `destiny-vault-auditor` skill and a wrapper command:
+
+```bash
+python3 plugin/destiny-vault-auditor/scripts/audit_vault.py --help
+```
+
+The wrapper delegates to `scripts/destiny-vault-auditor.py`, so the no-install CLI remains the source of truth. The plugin does not add OAuth, DIM Sync writes, browser automation, or any direct gear actions.
 
 ## Buckets
 

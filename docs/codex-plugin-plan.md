@@ -6,31 +6,29 @@ Start as a Codex plugin or skill, not a hosted website.
 
 The plugin should be usable from Codex Web by reading this repo, and later from a local Mac when we want to test DIM browser flows.
 
-## Proposed Repo Shape
+## Implemented Repo Shape
 
 ```text
 destiny-vault-auditor/
   README.md
   docs/
   plugin/
-    .codex-plugin/
-      plugin.json
-    skills/
-      destiny-vault-auditor/
-        SKILL.md
-        scripts/
-          audit_vault.py
-          fetch_sources.py
-          build_review_artifact.py
-        templates/
-          vault-review.html
+    destiny-vault-auditor/
+      .codex-plugin/
+        plugin.json
+      skills/
+        destiny-vault-auditor/
+          SKILL.md
+      scripts/
+        audit_vault.py
   src/
     auditor/
       dim_csv.py
       destiny_report.py
-      manifest.py
       scoring.py
-      comments.py
+      armor_analysis.py
+      duplicates.py
+      wishlist.py
       review_artifact.py
   tests/
     fixtures/
@@ -38,7 +36,7 @@ destiny-vault-auditor/
       synthetic_destiny_report.json
 ```
 
-The exact layout can change once implementation starts. The key is to keep the audit engine separate from the Codex skill wrapper.
+The audit engine stays separate from the Codex skill wrapper. The plugin wrapper delegates to `scripts/destiny-vault-auditor.py`.
 
 ## Plugin Workflow
 
@@ -149,6 +147,7 @@ See `docs/roadmap.md` for the current recommended build order. The short version
 - Add `.codex-plugin/plugin.json`.
 - Add skill instructions.
 - Provide clear prompts/commands for Codex Web.
+- Status: implemented as a repo-local plugin scaffold in `plugin/destiny-vault-auditor/`.
 
 ### Phase 6: Optional Live Data
 
