@@ -1,5 +1,6 @@
 Name,Hash,Id,Tag,Rarity,Tier,Type,Source,Category,Element,Ammo,Power,Crafted,Crafted Level,Holofoil,Season,Notes,Perks 0,Perks 1,Perks 2,Perks 3,Perks 4,Perks 5
 Solar Friend,1001,"item-1",favorite,Legendary,5,Hand Cannon,,Energy,Solar,primary,550,false,0,false,28,,Adaptive Frame,Heal Clip,Incandescent,,,
+Solar Friend,1001,"item-6",keep,Legendary,0,Hand Cannon,,Energy,Solar,primary,1900,false,0,false,28,,Adaptive Frame,Threat Detector,Air Assault,,,
 Old Rocket,2001,"item-2",favorite,Legendary,0,Rocket Launcher,,Power,Arc,heavy,1900,false,0,false,14,,Adaptive Frame,Impulse Amplifier,Cluster Bomb,,,
 Crafted Workhorse,3001,"item-3",favorite,Legendary,0,Pulse Rifle,,Kinetic,Kinetic,primary,1900,crafted,42,false,23,,High-Impact Frame,Zen Moment,Headseeker,,,
 PvP Comfort,4001,"item-4",keep,Legendary,0,Fusion Rifle,,Energy,Void,special,1900,false,0,false,4,PVP,Precision Frame,Firmly Planted,Tap the Trigger,,,

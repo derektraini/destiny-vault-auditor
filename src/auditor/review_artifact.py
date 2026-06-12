@@ -5,6 +5,7 @@ import json
 from collections import Counter
 from pathlib import Path
 
+from .duplicates import DuplicateSummary
 from .scoring import AuditConfig, Recommendation
 
 
@@ -13,6 +14,7 @@ def write_summary(
     recommendations: list[Recommendation],
     config: AuditConfig | None = None,
     source_labels: list[str] | None = None,
+    duplicate_summary: DuplicateSummary | None = None,
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     config = config or AuditConfig()
@@ -35,6 +37,18 @@ def write_summary(
         lines.extend(["", "## Source Inputs", ""])
         for label in source_labels:
             lines.append(f"- {label}")
+    if duplicate_summary:
+        lines.extend(
+            [
+                "",
+                "## Duplicate Groups",
+                "",
+                f"- Groups: {duplicate_summary.groups}",
+                f"- Items in duplicate groups: {duplicate_summary.items}",
+                f"- Weapon groups: {duplicate_summary.weapon_groups}",
+                f"- Armor groups: {duplicate_summary.armor_groups}",
+            ]
+        )
     lines.extend(
         [
             "",
@@ -79,10 +93,12 @@ def write_html(
     recommendations: list[Recommendation],
     config: AuditConfig | None = None,
     source_labels: list[str] | None = None,
+    duplicate_summary: DuplicateSummary | None = None,
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     config = config or AuditConfig()
     source_labels = source_labels or []
+    duplicate_summary = duplicate_summary or DuplicateSummary()
     data = [rec.__dict__ | {"comment": rec.comment} for rec in recommendations]
     payload = json.dumps(data)
     config_payload = json.dumps(config.summary)
@@ -113,6 +129,9 @@ def write_html(
     .stats {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 16px; }}
     .stat {{ background: #1b1812; border: 1px solid #373026; border-radius: 8px; padding: 12px; }}
     .stat strong {{ display: block; font-size: 22px; }}
+    .duplicate-panel {{ margin-bottom: 18px; }}
+    .duplicate-panel h2 {{ margin: 0 0 10px; font-size: 17px; }}
+    .duplicate-panel p {{ margin: 0 0 10px; color: #bdae9b; }}
     table {{ width: 100%; border-collapse: collapse; background: #17140f; border: 1px solid #373026; }}
     th, td {{ padding: 10px; border-bottom: 1px solid #302a22; text-align: left; vertical-align: top; }}
     th {{ color: #cfc4b5; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; background: #1d1912; position: sticky; top: 151px; }}
@@ -143,6 +162,7 @@ def write_html(
   </header>
   <main>
     <section class="stats" id="stats"></section>
+    <section class="duplicate-panel" id="duplicates"></section>
     <table>
       <thead>
         <tr><th>Name</th><th>Bucket</th><th>Tag</th><th>Confidence</th><th>Reason</th></tr>
@@ -154,6 +174,7 @@ def write_html(
     const recommendations = {payload};
     const config = {config_payload};
     const sources = {sources_payload};
+    const duplicateSummary = {json.dumps(duplicate_summary.__dict__)};
     const tagOptions = {json.dumps(tag_options)};
     const rowsEl = document.getElementById('rows');
     const searchEl = document.getElementById('search');
@@ -163,6 +184,7 @@ def write_html(
     const tagEl = document.getElementById('tag');
     const statsEl = document.getElementById('stats');
     const preflightEl = document.getElementById('preflight');
+    const duplicatesEl = document.getElementById('duplicates');
 
     function renderPreflight() {{
       const labels = [
@@ -186,6 +208,36 @@ def write_html(
         .sort((a, b) => b[1] - a[1])
         .map(([bucket, count]) => `<div class="stat"><strong>${{count}}</strong><span>${{bucket}}</span></div>`)
         .join('');
+    }}
+
+    function renderDuplicates() {{
+      const groups = new Map();
+      for (const rec of recommendations) {{
+        if (!rec.duplicate_group) continue;
+        if (!groups.has(rec.duplicate_group)) groups.set(rec.duplicate_group, []);
+        groups.get(rec.duplicate_group).push(rec);
+      }}
+      if (!groups.size) {{
+        duplicatesEl.innerHTML = '';
+        return;
+      }}
+      const rows = Array.from(groups.entries()).map(([group, items]) => {{
+        const best = items.find(item => item.duplicate_role === 'best') || items[0];
+        const copies = items.filter(item => item.duplicate_role !== 'best');
+        return `
+          <tr>
+            <td><strong>${{escapeHtml(best.duplicate_group_label || group)}}</strong><div class="muted">${{escapeHtml(group)}} · ${{items.length}} items</div></td>
+            <td>${{escapeHtml(best.name)}}<div class="muted">${{escapeHtml(best.bucket)}} · ${{escapeHtml(best.tag)}}</div></td>
+            <td>${{copies.map(copy => `${{escapeHtml(copy.name)}} <span class="muted">(${{escapeHtml(copy.bucket)}} · ${{escapeHtml(copy.tag)}})</span>`).join('<br>')}}</td>
+          </tr>`;
+      }}).join('');
+      duplicatesEl.innerHTML = `
+        <h2>Duplicate Queue</h2>
+        <p>${{duplicateSummary.groups}} groups · ${{duplicateSummary.items}} items. The auditor keeps a best copy visible before suggesting cleanup for weaker copies.</p>
+        <table>
+          <thead><tr><th>Group</th><th>Best Current Copy</th><th>Other Copies</th></tr></thead>
+          <tbody>${{rows}}</tbody>
+        </table>`;
     }}
 
     function matches(rec) {{
@@ -241,6 +293,7 @@ def write_html(
       URL.revokeObjectURL(url);
     }});
     renderPreflight();
+    renderDuplicates();
     render();
   </script>
 </body>

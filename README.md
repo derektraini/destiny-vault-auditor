@@ -14,12 +14,12 @@ Works today:
 - Weapon roll scoring with keep/junk/refarm/protect buckets.
 - Conservative armor scoring for exotics, locked items, notes, investment, class items, and stat profiles.
 - Light audit config for cleanup posture.
+- Duplicate weapon/armor grouping with a visible HTML duplicate queue.
 - Editable HTML review decisions can be imported back into a final DIM CSV.
 - Output files: `dim-import.csv`, `audit-summary.md`, `decisions.json`, `vault-review.html`.
 
 Planned:
 
-- Duplicate grouping.
 - Wishlist/triage source ingestion.
 - Deeper Armor 3.0 archetype/build scoring.
 - Codex plugin packaging.
@@ -163,8 +163,8 @@ Recommended first real pass:
 - `dim-import.csv`: DIM-compatible tag/comment import with `Name`, `Hash`, `Id`, `Tag`, and `Notes`.
 - `dim-import-weapons.csv` and `dim-import-armor.csv`: written when both inputs are provided.
 - `audit-summary.md`: counts, config, buckets, and recommendations.
-- `decisions.json`: structured recommendations, source inputs, and run config.
-- `vault-review.html`: local review artifact with filters, ranks, sources, and signal chips.
+- `decisions.json`: structured recommendations, duplicate group metadata, source inputs, and run config.
+- `vault-review.html`: local review artifact with filters, ranks, duplicate queue, sources, and signal chips.
 
 ## Buckets
 
@@ -175,7 +175,7 @@ Recommended first real pass:
 - `needs-review`: conflicting signals, PvP feel, source disagreement, or low confidence.
 - `junk`: no current role, protection signal, or bridge value found.
 
-Armor scoring is intentionally cautious. It protects/reviews more than it junks until duplicate grouping and deeper Armor 3.0 rules exist.
+Armor scoring is intentionally cautious. It protects/reviews more than it junks until deeper Armor 3.0 rules exist.
 
 ## Local Testing Checklist
 

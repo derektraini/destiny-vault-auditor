@@ -49,6 +49,7 @@ Start with:
 - `junk`
 - `replace-now`
 - `needs-review`
+- the Duplicate Queue near the top of the HTML artifact
 
 You can edit each row's tag and comment in the HTML artifact, then use the export button to save reviewed decisions JSON.
 
@@ -83,5 +84,5 @@ Importing it sends the auditor's proposed tags/comments back to DIM. It still do
 ## Known Limits
 
 - Armor scoring is conservative.
-- Duplicate grouping is not fully built yet.
+- Duplicate grouping keeps a best copy visible and marks weaker copies for review/cleanup.
 - Treat all `junk` as review candidates until you trust the model.

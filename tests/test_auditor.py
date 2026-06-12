@@ -24,37 +24,37 @@ class AuditorTests(unittest.TestCase):
     def test_scoring_buckets(self) -> None:
         _, rows = read_csv(FIXTURES / "synthetic_dim_weapons.csv")
         index = load_destiny_report(FIXTURES / "synthetic_destiny_report.json")
-        recs = {row["Name"]: recommend(row, index) for row in rows}
+        recs = {row["Id"]: recommend(row, index) for row in rows}
 
-        self.assertEqual(recs["Solar Friend"].bucket, "keep")
-        self.assertEqual(recs["Solar Friend"].tag, "keep")
-        self.assertEqual(recs["Old Rocket"].bucket, "replace-now")
-        self.assertEqual(recs["Old Rocket"].tag, "junk")
-        self.assertEqual(recs["Crafted Workhorse"].bucket, "protect")
-        self.assertEqual(recs["Crafted Workhorse"].tag, "favorite")
-        self.assertEqual(recs["PvP Comfort"].bucket, "keep-refarm")
-        self.assertEqual(recs["Plain Old Thing"].bucket, "junk")
+        self.assertEqual(recs["item-1"].bucket, "keep")
+        self.assertEqual(recs["item-1"].tag, "keep")
+        self.assertEqual(recs["item-2"].bucket, "replace-now")
+        self.assertEqual(recs["item-2"].tag, "junk")
+        self.assertEqual(recs["item-3"].bucket, "protect")
+        self.assertEqual(recs["item-3"].tag, "favorite")
+        self.assertEqual(recs["item-4"].bucket, "keep-refarm")
+        self.assertEqual(recs["item-5"].bucket, "junk")
 
     def test_armor_scoring_buckets(self) -> None:
         _, rows = read_csv(FIXTURES / "synthetic_dim_armor.csv")
-        recs = {row["Name"]: recommend_armor(row) for row in rows}
+        recs = {row["Id"]: recommend_armor(row) for row in rows}
 
-        self.assertEqual(recs["Support Helm"].kind, "armor")
-        self.assertEqual(recs["Support Helm"].bucket, "keep")
-        self.assertEqual(recs["Old Boots"].bucket, "junk")
-        self.assertEqual(recs["Lucky Chest"].bucket, "protect")
-        self.assertEqual(recs["Locked Arms"].bucket, "needs-review")
-        self.assertEqual(recs["Class Keepsake"].bucket, "needs-review")
+        self.assertEqual(recs["armor-1"].kind, "armor")
+        self.assertEqual(recs["armor-1"].bucket, "keep")
+        self.assertEqual(recs["armor-2"].bucket, "junk")
+        self.assertEqual(recs["armor-3"].bucket, "protect")
+        self.assertEqual(recs["armor-4"].bucket, "needs-review")
+        self.assertEqual(recs["armor-5"].bucket, "needs-review")
 
     def test_armor_set_ratings_affect_scoring(self) -> None:
         _, rows = read_csv(FIXTURES / "synthetic_dim_armor.csv")
         ratings = load_armor_set_ratings(FIXTURES / "synthetic_armor_set_ratings.csv")
-        recs = {row["Name"]: recommend_armor(row, armor_sets=ratings) for row in rows}
+        recs = {row["Id"]: recommend_armor(row, armor_sets=ratings) for row in rows}
 
-        self.assertEqual(recs["Support Helm"].bucket, "keep")
-        self.assertIn("set-rating:S", recs["Support Helm"].signals)
-        self.assertEqual(recs["Old Boots"].bucket, "junk")
-        self.assertIn("set-rating:E", recs["Old Boots"].signals)
+        self.assertEqual(recs["armor-1"].bucket, "keep")
+        self.assertIn("set-rating:S", recs["armor-1"].signals)
+        self.assertEqual(recs["armor-2"].bucket, "junk")
+        self.assertIn("set-rating:E", recs["armor-2"].signals)
 
     def test_cli_writes_outputs(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -86,7 +86,7 @@ class AuditorTests(unittest.TestCase):
                 check=True,
             )
 
-            self.assertIn("Reviewed 5 items", result.stdout)
+            self.assertIn("Reviewed 6 items", result.stdout)
             for name in ["dim-import.csv", "audit-summary.md", "decisions.json", "vault-review.html"]:
                 self.assertTrue((out_dir / name).exists(), name)
 
@@ -129,7 +129,7 @@ class AuditorTests(unittest.TestCase):
                 check=True,
             )
 
-            self.assertIn("Reviewed 10 items", result.stdout)
+            self.assertIn("Reviewed 12 items", result.stdout)
             for name in [
                 "dim-import.csv",
                 "dim-import-weapons.csv",
@@ -149,13 +149,58 @@ class AuditorTests(unittest.TestCase):
             self.assertIn('"destiny.report weapon metadata"', decisions)
             self.assertIn('"armor set rating sheet"', decisions)
             summary = (out_dir / "audit-summary.md").read_text(encoding="utf-8")
-            self.assertIn("Item kinds: armor 5, weapon 5", summary)
+            self.assertIn("Item kinds: armor 6, weapon 6", summary)
             self.assertIn("## Source Inputs", summary)
             self.assertIn("armor set rating sheet", summary)
 
             for name in ["dim-import.csv", "dim-import-weapons.csv", "dim-import-armor.csv"]:
                 with (out_dir / name).open(newline="", encoding="utf-8") as handle:
                     self.assertEqual(csv.DictReader(handle).fieldnames, ["Name", "Hash", "Id", "Tag", "Notes"])
+
+    def test_cli_reports_duplicate_groups_and_preserves_one_copy(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            out_dir = Path(tmp)
+            subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "auditor.cli",
+                    "--weapons-csv",
+                    str(FIXTURES / "synthetic_dim_weapons.csv"),
+                    "--armor-csv",
+                    str(FIXTURES / "synthetic_dim_armor.csv"),
+                    "--armor-set-ratings-csv",
+                    str(FIXTURES / "synthetic_armor_set_ratings.csv"),
+                    "--destiny-report-json",
+                    str(FIXTURES / "synthetic_destiny_report.json"),
+                    "--out-dir",
+                    str(out_dir),
+                ],
+                cwd=ROOT,
+                env={"PYTHONPATH": str(SRC)},
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+
+            summary = (out_dir / "audit-summary.md").read_text(encoding="utf-8")
+            self.assertIn("## Duplicate Groups", summary)
+            self.assertIn("- Groups: 2", summary)
+            self.assertIn("- Weapon groups: 1", summary)
+            self.assertIn("- Armor groups: 1", summary)
+
+            decisions = json.loads((out_dir / "decisions.json").read_text(encoding="utf-8"))
+            by_id = {rec["item_id"]: rec for rec in decisions["recommendations"]}
+            self.assertEqual(by_id["item-1"]["duplicate_role"], "best")
+            self.assertEqual(by_id["item-6"]["duplicate_role"], "copy")
+            self.assertIn("duplicate-copy", by_id["item-6"]["signals"])
+            armor_group = [by_id["armor-2"], by_id["armor-6"]]
+            self.assertTrue(any(rec["tag"] != "junk" for rec in armor_group))
+            self.assertTrue(all(rec["duplicate_group"] for rec in armor_group))
+
+            html = (out_dir / "vault-review.html").read_text(encoding="utf-8")
+            self.assertIn("Duplicate Queue", html)
+            self.assertIn("duplicateSummary", html)
 
     def test_cli_applies_reviewed_decisions_to_final_dim_csv(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -224,7 +269,9 @@ class AuditorTests(unittest.TestCase):
 
             decisions = json.loads((out_dir / "decisions.json").read_text(encoding="utf-8"))
             item_2 = next(rec for rec in decisions["recommendations"] if rec["item_id"] == "item-2")
+            item_5 = next(rec for rec in decisions["recommendations"] if rec["item_id"] == "item-5")
             self.assertIn("reviewed-decision", item_2["signals"])
+            self.assertEqual(item_5["rank"], "review")
             self.assertIn("reviewed decisions JSON", decisions["sources"])
 
     def test_locked_behavior_can_protect_or_review(self) -> None:

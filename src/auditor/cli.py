@@ -9,6 +9,7 @@ from pathlib import Path
 from .armor_sets import load_armor_set_ratings
 from .destiny_report import load_destiny_report
 from .dim_csv import append_audit_note, read_csv, write_csv
+from .duplicates import apply_duplicate_grouping
 from .review_artifact import write_decisions, write_html, write_summary
 from .scoring import AuditConfig, Recommendation, recommend, recommend_armor
 
@@ -136,6 +137,10 @@ def main() -> None:
         inputs.append(("armor", armor_fields, armor_rows, armor_recommendations))
 
     recommendations = [rec for _, _, _, recs in inputs for rec in recs]
+    duplicate_summary = apply_duplicate_grouping(
+        [(row, rec) for _, _, rows, recs in inputs for row, rec in zip(rows, recs, strict=True)],
+        config,
+    )
     if args.review_decisions_json:
         applied_count, warnings = _apply_review_decisions(args.review_decisions_json, recommendations, parser)
         print(f"Applied {applied_count} reviewed decisions")
@@ -151,9 +156,9 @@ def main() -> None:
             write_csv(out_dir / f"dim-import-{name}.csv", DIM_IMPORT_FIELDS, output_rows)
 
     write_csv(out_dir / "dim-import.csv", DIM_IMPORT_FIELDS, combined_rows)
-    write_summary(out_dir / "audit-summary.md", recommendations, config, source_labels)
+    write_summary(out_dir / "audit-summary.md", recommendations, config, source_labels, duplicate_summary)
     write_decisions(out_dir / "decisions.json", recommendations, config, source_labels)
-    write_html(out_dir / "vault-review.html", recommendations, config, source_labels)
+    write_html(out_dir / "vault-review.html", recommendations, config, source_labels, duplicate_summary)
 
     print(f"Reviewed {len(recommendations)} items")
     print(f"Wrote {out_dir / 'dim-import.csv'}")
@@ -246,11 +251,22 @@ def _apply_review_decisions(
         if comment:
             rec.comment_override = comment
         rec.tag = tag
+        rec.rank = _rank_for_reviewed_decision(rec.bucket, tag)
         if "reviewed-decision" not in rec.signals:
             rec.signals.append("reviewed-decision")
         applied += 1
 
     return applied, warnings
+
+
+def _rank_for_reviewed_decision(bucket: str, tag: str) -> str:
+    if tag == "favorite":
+        return "favorite"
+    if tag == "junk":
+        return "junk"
+    if tag == "archive" or bucket == "needs-review":
+        return "review"
+    return "keep"
 
 
 def _validate_input_path(parser: argparse.ArgumentParser, path: Path, allow_unignored: bool, label: str) -> None:

@@ -4,10 +4,9 @@ This roadmap turns the remaining planned items into buildable milestones. The go
 
 ## Recommended Order
 
-1. Duplicate grouping.
-2. Wishlist/triage source ingestion.
-3. Deeper Armor 3.0 archetype/build scoring.
-4. Codex plugin packaging.
+1. Wishlist/triage source ingestion.
+2. Deeper Armor 3.0 archetype/build scoring.
+3. Codex plugin packaging.
 
 ## Completed: Reviewed Decisions To Final CSV
 
@@ -30,17 +29,20 @@ Acceptance criteria:
 - Manual changes to tag/comment survive into the final CSV.
 - Missing or stale item IDs produce review warnings, not silent bad imports.
 
-## 2. Duplicate Grouping
+## Completed: Duplicate Grouping
 
-Why second: duplicate cleanup is one of the highest-value vault wins, especially for returning players with multiple old versions of the same weapon or redundant armor pieces.
+Status: implemented.
 
-First useful version:
+Why it mattered: duplicate cleanup is one of the highest-value vault wins, especially for returning players with multiple old versions of the same weapon or redundant armor pieces.
 
-- Group weapons by normalized name plus type/frame when available.
-- Show same-name old-vs-new pressure inside each group.
-- Pick a best-in-group candidate using crafted state, tier, perk combo, source confidence, weapon level, and lock/note signals.
-- Group armor by slot, set name, exotic status, and broad stat shape.
-- Add `duplicate-group` signal chips in the HTML artifact.
+Implemented:
+
+- Group weapons by normalized name and type.
+- Group armor by slot, set name, rarity, and broad stat shape.
+- Pick a best-in-group candidate using bucket/tag/confidence, crafted state, tier, weapon level, lock/note signals, armor totals, and set ratings.
+- Add duplicate metadata and `duplicate-group`, `duplicate-best`, and `duplicate-copy` signal chips to decisions and HTML.
+- Add a visible HTML duplicate queue.
+- Preserve at least one non-junk copy in a duplicate group.
 
 Acceptance criteria:
 

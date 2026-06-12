@@ -102,6 +102,10 @@ class Recommendation:
     rank: str = ""
     signals: list[str] = field(default_factory=list)
     comment_override: str = ""
+    duplicate_group: str = ""
+    duplicate_group_label: str = ""
+    duplicate_size: int = 0
+    duplicate_role: str = ""
 
     @property
     def comment(self) -> str:
