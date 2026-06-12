@@ -20,11 +20,11 @@ Works today:
 - Repo-local Codex plugin scaffold and skill wrapper.
 - Output files: `dim-import.csv`, `audit-summary.md`, `decisions.json`, `vault-review.html`.
 
-Planned:
+Later ideas:
 
 - Optional source refresh helpers.
 
-See `docs/roadmap.md` for the recommended build order and acceptance criteria.
+See `docs/roadmap.md` for completed milestones and future follow-up ideas.
 
 ## Setup
 
@@ -32,7 +32,7 @@ Requirements:
 
 - Python 3.10+.
 - Git.
-- No install or Python packages are required for the current prototype.
+- No install or Python packages are required for the current local workflow.
 
 Clone and enter the repo:
 
@@ -47,6 +47,36 @@ Verify the CLI works:
 python3 scripts/destiny-vault-auditor.py --help
 python3 -m unittest discover -s tests
 ```
+
+## Friend Quick Start
+
+1. Export weapons and armor CSVs from DIM.
+2. Save them under `dim-exports/` as `weapons.private.csv` and `armor.private.csv`.
+3. Run a first audit:
+
+```bash
+python3 scripts/destiny-vault-auditor.py \
+  --weapons-csv dim-exports/weapons.private.csv \
+  --armor-csv dim-exports/armor.private.csv \
+  --out-dir outputs/my-audit \
+  --cleanup-mode clean-slate \
+  --locked-behavior review
+```
+
+4. Open `outputs/my-audit/vault-review.html`, edit any tags/comments that need human judgment, and export reviewed decisions JSON.
+5. Run a final audit using that reviewed decisions file:
+
+```bash
+python3 scripts/destiny-vault-auditor.py \
+  --weapons-csv dim-exports/weapons.private.csv \
+  --armor-csv dim-exports/armor.private.csv \
+  --review-decisions-json path/to/reviewed-decisions.json \
+  --out-dir outputs/my-final-audit
+```
+
+6. Import `outputs/my-final-audit/dim-import.csv` into DIM manually.
+
+The import CSV only updates DIM metadata columns: `Name`, `Hash`, `Id`, `Tag`, and `Notes`. It does not dismantle or move anything.
 
 ## Quick Start
 
@@ -131,16 +161,16 @@ python3 scripts/destiny-vault-auditor.py \
   --out-dir outputs/my-audit
 ```
 
-Review `outputs/my-audit/vault-review.html` before importing `outputs/my-audit/dim-import.csv` into DIM.
+Review `outputs/my-audit/vault-review.html` before importing any CSV into DIM. If you edit tags or comments in the HTML artifact, rerun with `--review-decisions-json` and import the second-pass `outputs/my-final-audit/dim-import.csv`.
 
 ## Returning Player Flow
 
 1. Export both weapons and armor from DIM.
-2. Add optional sources when available: destiny.report weapon metadata and the armor set rating sheet.
+2. Add optional sources when available: destiny.report weapon metadata, the armor set rating sheet, and trusted local wishlist/triage notes.
 3. Run in `clean-slate` mode with `--locked-behavior review`.
 4. In the HTML artifact, start with `junk`, `replace-now`, and `needs-review`.
 5. Edit tags/comments in the HTML artifact and export `decisions.json`.
-6. Rerun the audit with `--review-decisions-json` to create the final DIM CSV.
+6. Rerun the audit with the same input/source files plus `--review-decisions-json` to create the final DIM CSV.
 7. Import the final DIM CSV only after the recommendations make sense.
 
 The tool ranks and categorizes gear using vault facts, current-ish source metadata, perk/set heuristics, and personal-intent signals like locks, notes, crafted state, and weapon level.
@@ -224,7 +254,7 @@ Armor scoring is intentionally cautious. It combines set ratings, stat fit, arch
 
 ## Repo Map
 
-- `src/auditor/`: CLI and audit engine prototype.
+- `src/auditor/`: CLI and audit engine.
 - `scripts/destiny-vault-auditor.py`: no-install CLI wrapper.
 - `tests/fixtures/`: synthetic, non-personal fixtures.
 - `docs/product-brief.md`: product direction.
@@ -233,7 +263,7 @@ Armor scoring is intentionally cautious. It combines set ratings, stat fit, arch
 - `docs/configuration-ux.md`: light config UX.
 - `docs/codex-plugin-plan.md`: plugin plan.
 - `docs/friend-testing.md`: short share guide for testers.
-- `docs/roadmap.md`: planned work with build order and acceptance criteria.
+- `docs/roadmap.md`: completed milestones and future follow-up ideas.
 
 ## Safety
 

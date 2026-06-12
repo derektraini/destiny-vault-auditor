@@ -69,10 +69,13 @@ After exporting reviewed decisions, rerun:
 python3 scripts/destiny-vault-auditor.py \
   --weapons-csv dim-exports/weapons.private.csv \
   --armor-csv dim-exports/armor.private.csv \
+  --armor-set-ratings-csv source-cache/armor-set-ratings.csv \
   --wishlist-source source-cache/wishlist.json \
   --review-decisions-json path/to/reviewed-decisions.json \
   --out-dir outputs/my-final-audit
 ```
+
+Use the same optional source files on the final pass that you used on the first pass. Omit any optional source flag if you did not use that file.
 
 ## Import Back Into DIM
 

@@ -1,6 +1,6 @@
 # Roadmap
 
-This roadmap turns the remaining planned items into buildable milestones. The goal is to keep the tool useful for returning players without making vault cleanup feel like homework.
+This roadmap records completed milestones and future follow-up ideas. The goal is to keep the tool useful for returning players without making vault cleanup feel like homework.
 
 ## Recommended Order
 
