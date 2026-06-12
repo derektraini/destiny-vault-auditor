@@ -6,6 +6,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+from .armor_analysis import apply_armor_context
 from .armor_sets import load_armor_set_ratings
 from .destiny_report import load_destiny_report
 from .dim_csv import append_audit_note, read_csv, write_csv
@@ -142,14 +143,16 @@ def main() -> None:
         inputs.append(("armor", armor_fields, armor_rows, armor_recommendations))
 
     recommendations = [rec for _, _, _, recs in inputs for rec in recs]
+    item_recommendations = [(row, rec) for _, _, rows, recs in inputs for row, rec in zip(rows, recs, strict=True)]
+    apply_armor_context(item_recommendations, armor_sets)
     wishlist_count = apply_wishlist_matches(
-        [(row, rec) for _, _, rows, recs in inputs for row, rec in zip(rows, recs, strict=True)],
+        item_recommendations,
         wishlist,
     )
     if wishlist:
         print(f"Applied {wishlist_count} wishlist/triage matches")
     duplicate_summary = apply_duplicate_grouping(
-        [(row, rec) for _, _, rows, recs in inputs for row, rec in zip(rows, recs, strict=True)],
+        item_recommendations,
         config,
     )
     if args.review_decisions_json:

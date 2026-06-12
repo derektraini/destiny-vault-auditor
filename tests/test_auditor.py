@@ -14,6 +14,7 @@ FIXTURES = ROOT / "tests" / "fixtures"
 
 sys.path.insert(0, str(SRC))
 
+from auditor.armor_analysis import analyze_armor
 from auditor.armor_sets import load_armor_set_ratings
 from auditor.destiny_report import load_destiny_report
 from auditor.dim_csv import read_csv
@@ -54,8 +55,28 @@ class AuditorTests(unittest.TestCase):
 
         self.assertEqual(recs["armor-1"].bucket, "keep")
         self.assertIn("set-rating:S", recs["armor-1"].signals)
+        self.assertIn("armor-role:survival", recs["armor-1"].signals)
+        self.assertIn("strong stat fit", recs["armor-1"].reason)
         self.assertEqual(recs["armor-2"].bucket, "junk")
         self.assertIn("set-rating:E", recs["armor-2"].signals)
+        self.assertIn("weak stat fit", recs["armor-2"].reason)
+        self.assertEqual(recs["armor-4"].bucket, "needs-review")
+        self.assertIn("useful Dark Age", recs["armor-4"].reason)
+        self.assertIn("weak stat fit", recs["armor-4"].reason)
+
+    def test_armor_profile_parses_archetype_class_and_role(self) -> None:
+        _, rows = read_csv(FIXTURES / "synthetic_dim_armor.csv")
+        by_id = {row["Id"]: row for row in rows}
+
+        support = analyze_armor(by_id["armor-1"])
+        old_boots = analyze_armor(by_id["armor-2"])
+
+        self.assertEqual(support.armor_class, "Titan")
+        self.assertEqual(support.archetype, "Survival")
+        self.assertEqual(support.role, "survival")
+        self.assertEqual(support.stat_fit, "strong stat fit")
+        self.assertEqual(old_boots.role, "weapon-stat")
+        self.assertEqual(old_boots.stat_fit, "weak stat fit")
 
     def test_cli_writes_outputs(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -153,6 +174,7 @@ class AuditorTests(unittest.TestCase):
             self.assertIn("Item kinds: armor 6, weapon 6", summary)
             self.assertIn("## Source Inputs", summary)
             self.assertIn("armor set rating sheet", summary)
+            self.assertIn("only copy of a useful set/slot", summary)
 
             for name in ["dim-import.csv", "dim-import-weapons.csv", "dim-import-armor.csv"]:
                 with (out_dir / name).open(newline="", encoding="utf-8") as handle:
@@ -195,6 +217,7 @@ class AuditorTests(unittest.TestCase):
             self.assertEqual(by_id["item-1"]["duplicate_role"], "best")
             self.assertEqual(by_id["item-6"]["duplicate_role"], "copy")
             self.assertIn("duplicate-copy", by_id["item-6"]["signals"])
+            self.assertIn("only-copy-useful-set-slot", by_id["armor-4"]["signals"])
             armor_group = [by_id["armor-2"], by_id["armor-6"]]
             self.assertTrue(any(rec["tag"] != "junk" for rec in armor_group))
             self.assertTrue(all(rec["duplicate_group"] for rec in armor_group))
@@ -277,6 +300,7 @@ class AuditorTests(unittest.TestCase):
                 rows = {row["Id"]: row for row in csv.DictReader(handle)}
             self.assertEqual(rows["item-2"]["Tag"], "keep")
             self.assertIn("curated wishlist match", rows["item-2"]["Notes"])
+            self.assertNotIn(".. Sources:", rows["item-2"]["Notes"])
             self.assertEqual(rows["item-5"]["Tag"], "archive")
             self.assertIn("source is older", rows["item-5"]["Notes"])
 

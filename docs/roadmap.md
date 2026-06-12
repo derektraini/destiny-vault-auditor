@@ -4,8 +4,7 @@ This roadmap turns the remaining planned items into buildable milestones. The go
 
 ## Recommended Order
 
-1. Deeper Armor 3.0 archetype/build scoring.
-2. Codex plugin packaging.
+1. Codex plugin packaging.
 
 ## Completed: Reviewed Decisions To Final CSV
 
@@ -70,17 +69,20 @@ Acceptance criteria:
 - Partial matches route to `needs-review`, not automatic keep.
 - Stale sources are visible and lower confidence when patch/source dates are old.
 
-## 4. Deeper Armor 3.0 Archetype And Build Scoring
+## Completed: Deeper Armor 3.0 Archetype And Build Scoring
 
-Why fourth: armor needs more context before it should get aggressive. The current version is intentionally conservative and relies on exotics, notes, locks, investment, stat shape, and set ratings.
+Status: implemented.
 
-First useful version:
+Why it mattered: armor needs more context before it should get aggressive. The scorer now remains cautious while using more of the DIM/export context.
 
-- Parse armor slot, set name, class, archetype, stat totals, and stat spikes from DIM exports where available.
-- Add build roles such as survival, grenade, melee, weapon-stat, PvP, raid/dungeon set utility, and class-item cleanup.
-- Use armor set rating sheets as a source, but combine them with stats and user intent.
-- Detect "only copy of useful set/slot" before junking.
-- Keep class items cautious until duplicate/build context is better.
+Implemented:
+
+- Parse armor slot, set name, class, archetype, stat totals, stat spikes, and peak stat from DIM exports where available.
+- Add build roles such as survival, grenade, melee, weapon-stat, PvP, and raid/dungeon utility.
+- Combine armor set ratings with stat fit and user intent.
+- Add `armor-class:*`, `armor-archetype:*`, `armor-role:*`, `stat-fit:*`, `peak:*`, and `only-copy-useful-set-slot` signals.
+- Detect the only copy of a useful set/slot before junking.
+- Keep class items cautious while explaining useful set context when present.
 
 Acceptance criteria:
 

@@ -120,6 +120,10 @@ Armor should be first-class in the same audit flow, not a separate later tool. I
 
 Armor comments should explain the build role or replacement reason in the same short style as weapons.
 
+Current Armor 3.0 scoring reads class/archetype fields when present and derives build-role context from stat shape when they are not. Supported role signals include survival, grenade, melee, weapon-stat, PvP, and raid/dungeon utility. Set rating sources are combined with stat fit so a high-value set with weak stats becomes `needs-review`, while low-rated, low-stat, unlocked, unnoted legendary armor can still become `junk`.
+
+The CLI also checks whether a piece is the only copy of a useful set/slot in the export. Those pieces receive an `only-copy-useful-set-slot` signal and are routed away from blind junking.
+
 ### Replacement Pressure
 
 Use destiny.report and manifest data to detect:

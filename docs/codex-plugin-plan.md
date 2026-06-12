@@ -112,8 +112,7 @@ Read-only Bungie OAuth may be useful later for convenience, but the current prod
 
 See `docs/roadmap.md` for the current recommended build order. The short version:
 
-1. Armor depth.
-2. Codex plugin packaging.
+1. Codex plugin packaging.
 
 ### Phase 1: File-Based Prototype
 
@@ -143,6 +142,7 @@ See `docs/roadmap.md` for the current recommended build order. The short version
 - Add Armor 3.0 archetype logic.
 - Support exotic armor build roles.
 - Add duplicate class item cleanup.
+- Status: Armor 3.0 archetype/stat-role scoring is implemented in the CLI; class item cleanup remains intentionally cautious.
 
 ### Phase 5: Codex Plugin Packaging
 

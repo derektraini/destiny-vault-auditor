@@ -92,7 +92,7 @@ Importing it sends the auditor's proposed tags/comments back to DIM. It still do
 
 ## Known Limits
 
-- Armor scoring is conservative.
+- Armor scoring is conservative, but now includes set ratings, stat fit, archetype/build-role signals, and only-copy set/slot context.
 - Duplicate grouping keeps a best copy visible and marks weaker copies for review/cleanup.
 - Wishlist matches are evidence, not final authority; stale and partial matches should still be reviewed.
 - Treat all `junk` as review candidates until you trust the model.

@@ -3,6 +3,13 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from .armor_analysis import (
+    analyze_armor,
+    armor_context_reason,
+    armor_profile_signals,
+    strong_role_fit,
+    useful_set_with_weak_stats,
+)
 from .armor_sets import ArmorSetIndex, normalize_set_name, rating_value
 from .destiny_report import DestinyReportIndex, best_replacement_versions, version_label
 from .dim_csv import int_field, is_crafted, perk_names
@@ -112,7 +119,8 @@ class Recommendation:
         if self.comment_override:
             return self.comment_override
         source_text = f" Sources: {', '.join(self.sources)}." if self.sources else ""
-        return f"DVA: {self.bucket.upper()} - {self.reason}.{source_text}"
+        reason = self.reason.rstrip(".")
+        return f"DVA: {self.bucket.upper()} - {reason}.{source_text}"
 
 
 def recommend(
@@ -335,6 +343,9 @@ def recommend_armor(
     masterwork_tier = _first_int(row, ("Masterwork Tier", "Masterwork"))
     sources = ["DIM armor CSV"]
     signals = _intent_signals(row, config)
+    armor_profile = analyze_armor(row)
+    signals.extend(armor_profile_signals(armor_profile))
+    armor_context = armor_context_reason(armor_profile)
     set_rating = _armor_set_rating(row, armor_sets)
     if set_rating:
         sources.append("armor set ratings")
@@ -406,6 +417,9 @@ def recommend_armor(
         )
 
     if armor_type.lower() == "class item":
+        reason = "class item cleanup needs duplicate/build context"
+        if set_rating and rating_value(set_rating.best_rating) >= rating_value("B+"):
+            reason = f"class item covers useful {set_rating.label}; review duplicate/build context"
         return _rec(
             row_id,
             row_hash,
@@ -414,7 +428,7 @@ def recommend_armor(
             "needs-review",
             _preserve_tag(current_tag),
             "low",
-            "class item cleanup needs duplicate/build context",
+            reason,
             sources,
             current_tag,
             signals=signals,
@@ -422,25 +436,45 @@ def recommend_armor(
 
     if set_rating and rating_value(set_rating.best_rating) >= rating_value("A-"):
         reason = f"high-rated {set_rating.label}"
+        if armor_context:
+            reason += f"; {armor_context}"
         if total:
             reason += f"; {total} total"
+        if useful_set_with_weak_stats(rating_value(set_rating.best_rating), armor_profile):
+            reason = f"high-rated {set_rating.label}, but weak stat fit; {armor_context or 'review build fit'}"
+            if total:
+                reason += f"; {total} total"
+            return _rec(row_id, row_hash, name, "armor", "needs-review", "keep", "low", reason, sources, current_tag, signals=signals)
         return _rec(row_id, row_hash, name, "armor", "keep", "keep", "medium", reason, sources, current_tag, signals=signals)
 
     if set_rating and rating_value(set_rating.best_rating) >= rating_value("B+"):
         reason = f"useful {set_rating.label}; review stat fit"
+        if armor_context:
+            reason += f"; {armor_context}"
         if total:
             reason += f"; {total} total"
         return _rec(row_id, row_hash, name, "armor", "needs-review", "keep", "low", reason, sources, current_tag, signals=signals)
 
     if total >= 66 or max_stat >= 27 or (len(two_spikes) == 2 and two_spikes[0] >= 23 and two_spikes[1] >= 20):
         reason = f"strong armor stat profile"
+        if armor_context:
+            reason += f"; {armor_context}"
         if total:
             reason += f" with {total} total"
         if max_stat:
             reason += f" and {max_stat} peak stat"
         return _rec(row_id, row_hash, name, "armor", "keep", "keep", "medium", reason, sources, current_tag, signals=signals)
 
+    if strong_role_fit(armor_profile):
+        reason = f"Armor 3.0 build-role fit; {armor_context}"
+        if total:
+            reason += f"; {total} total"
+        return _rec(row_id, row_hash, name, "armor", "needs-review", "keep", "low", reason, sources, current_tag, signals=signals)
+
     if tier >= 5:
+        reason = "Tier 5 armor without a strong stat read; review for Armor 3.0 role"
+        if armor_context:
+            reason += f"; {armor_context}"
         return _rec(
             row_id,
             row_hash,
@@ -449,7 +483,7 @@ def recommend_armor(
             "needs-review",
             "keep",
             "low",
-            "Tier 5 armor without a strong stat read; review for Armor 3.0 role",
+            reason,
             sources,
             current_tag,
             signals=signals,
@@ -486,6 +520,8 @@ def recommend_armor(
         )
 
     reason = "no exotic, lock, note, investment, Tier 5, or strong stat profile found"
+    if armor_context:
+        reason += f"; {armor_context}"
     if total:
         reason += f"; {total} total"
     if power and config.low_power_below and power <= config.low_power_below:

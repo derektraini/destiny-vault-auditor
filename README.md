@@ -13,7 +13,7 @@ Works today:
 - Optional armor set rating CSV input.
 - Optional local wishlist/triage JSON or CSV input.
 - Weapon roll scoring with keep/junk/refarm/protect buckets.
-- Conservative armor scoring for exotics, locked items, notes, investment, class items, and stat profiles.
+- Armor 3.0 scoring for exotics, locked items, notes, investment, class items, stat profiles, archetypes, build roles, set ratings, and useful set/slot coverage.
 - Light audit config for cleanup posture.
 - Duplicate weapon/armor grouping with a visible HTML duplicate queue.
 - Editable HTML review decisions can be imported back into a final DIM CSV.
@@ -21,7 +21,6 @@ Works today:
 
 Planned:
 
-- Deeper Armor 3.0 archetype/build scoring.
 - Codex plugin packaging.
 
 See `docs/roadmap.md` for the recommended build order and acceptance criteria.
@@ -198,7 +197,7 @@ Recommended first real pass:
 - `needs-review`: conflicting signals, PvP feel, source disagreement, or low confidence.
 - `junk`: no current role, protection signal, or bridge value found.
 
-Armor scoring is intentionally cautious. It protects/reviews more than it junks until deeper Armor 3.0 rules exist.
+Armor scoring is intentionally cautious. It combines set ratings, stat fit, archetype/build-role signals, and only-copy set/slot coverage before suggesting cleanup.
 
 ## Local Testing Checklist
 
