@@ -13,9 +13,10 @@ FIXTURES = ROOT / "tests" / "fixtures"
 
 sys.path.insert(0, str(SRC))
 
+from auditor.armor_sets import load_armor_set_ratings
 from auditor.destiny_report import load_destiny_report
 from auditor.dim_csv import read_csv
-from auditor.scoring import AuditConfig, recommend
+from auditor.scoring import AuditConfig, recommend, recommend_armor
 
 
 class AuditorTests(unittest.TestCase):
@@ -32,6 +33,27 @@ class AuditorTests(unittest.TestCase):
         self.assertEqual(recs["Crafted Workhorse"].tag, "favorite")
         self.assertEqual(recs["PvP Comfort"].bucket, "keep-refarm")
         self.assertEqual(recs["Plain Old Thing"].bucket, "junk")
+
+    def test_armor_scoring_buckets(self) -> None:
+        _, rows = read_csv(FIXTURES / "synthetic_dim_armor.csv")
+        recs = {row["Name"]: recommend_armor(row) for row in rows}
+
+        self.assertEqual(recs["Support Helm"].kind, "armor")
+        self.assertEqual(recs["Support Helm"].bucket, "keep")
+        self.assertEqual(recs["Old Boots"].bucket, "junk")
+        self.assertEqual(recs["Lucky Chest"].bucket, "protect")
+        self.assertEqual(recs["Locked Arms"].bucket, "needs-review")
+        self.assertEqual(recs["Class Keepsake"].bucket, "needs-review")
+
+    def test_armor_set_ratings_affect_scoring(self) -> None:
+        _, rows = read_csv(FIXTURES / "synthetic_dim_armor.csv")
+        ratings = load_armor_set_ratings(FIXTURES / "synthetic_armor_set_ratings.csv")
+        recs = {row["Name"]: recommend_armor(row, armor_sets=ratings) for row in rows}
+
+        self.assertEqual(recs["Support Helm"].bucket, "keep")
+        self.assertIn("set-rating:S", recs["Support Helm"].signals)
+        self.assertEqual(recs["Old Boots"].bucket, "junk")
+        self.assertIn("set-rating:E", recs["Old Boots"].signals)
 
     def test_cli_writes_outputs(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -77,6 +99,50 @@ class AuditorTests(unittest.TestCase):
             decisions = (out_dir / "decisions.json").read_text(encoding="utf-8")
             self.assertIn('"cleanup_mode": "aggressive"', decisions)
             self.assertIn('"locked_behavior": "protect"', decisions)
+
+    def test_cli_writes_mixed_weapon_and_armor_outputs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            out_dir = Path(tmp)
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "auditor.cli",
+                    "--weapons-csv",
+                    str(FIXTURES / "synthetic_dim_weapons.csv"),
+                    "--armor-csv",
+                    str(FIXTURES / "synthetic_dim_armor.csv"),
+                    "--armor-set-ratings-csv",
+                    str(FIXTURES / "synthetic_armor_set_ratings.csv"),
+                    "--destiny-report-json",
+                    str(FIXTURES / "synthetic_destiny_report.json"),
+                    "--out-dir",
+                    str(out_dir),
+                ],
+                cwd=ROOT,
+                env={"PYTHONPATH": str(SRC)},
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+
+            self.assertIn("Reviewed 10 items", result.stdout)
+            for name in [
+                "dim-import.csv",
+                "dim-import-weapons.csv",
+                "dim-import-armor.csv",
+                "audit-summary.md",
+                "decisions.json",
+                "vault-review.html",
+            ]:
+                self.assertTrue((out_dir / name).exists(), name)
+
+            decisions = (out_dir / "decisions.json").read_text(encoding="utf-8")
+            self.assertIn('"kind": "weapon"', decisions)
+            self.assertIn('"kind": "armor"', decisions)
+            self.assertIn('"armor set ratings"', decisions)
+            summary = (out_dir / "audit-summary.md").read_text(encoding="utf-8")
+            self.assertIn("Item kinds: armor 5, weapon 5", summary)
 
     def test_locked_behavior_can_protect_or_review(self) -> None:
         _, rows = read_csv(FIXTURES / "synthetic_dim_weapons.csv")
@@ -153,7 +219,7 @@ class AuditorTests(unittest.TestCase):
             check=True,
         )
 
-        self.assertIn("Audit a DIM weapon CSV", result.stdout)
+        self.assertIn("Audit DIM weapon and armor CSVs", result.stdout)
 
 
 if __name__ == "__main__":

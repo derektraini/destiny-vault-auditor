@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from .armor_sets import ArmorSetIndex, normalize_set_name, rating_value
 from .destiny_report import DestinyReportIndex, best_replacement_versions, version_label
 from .dim_csv import int_field, is_crafted, perk_names
 
@@ -90,6 +91,7 @@ class AuditConfig:
 class Recommendation:
     item_id: str
     name: str
+    kind: str
     bucket: str
     tag: str
     confidence: str
@@ -129,6 +131,7 @@ def recommend(
         return _rec(
             item_id=row_id,
             name=name,
+            kind="weapon",
             bucket="protect",
             tag=_preserve_tag(current_tag),
             confidence="high",
@@ -142,12 +145,13 @@ def recommend(
         reason = "crafted/reshapeable weapon preserved"
         if level > config.invested_level_threshold:
             reason = f"crafted weapon level {level}; preserve and move on unless deliberately refarming"
-        return _rec(row_id, name, "protect", _preserve_tag(current_tag), "high", reason, sources, current_tag, signals=signals)
+        return _rec(row_id, name, "weapon", "protect", _preserve_tag(current_tag), "high", reason, sources, current_tag, signals=signals)
 
     if rarity == "Exotic":
         return _rec(
             row_id,
             name,
+            "weapon",
             "protect",
             _preserve_tag(current_tag),
             "high",
@@ -161,6 +165,7 @@ def recommend(
         return _rec(
             row_id,
             name,
+            "weapon",
             "protect",
             _preserve_tag(current_tag),
             "medium",
@@ -187,6 +192,7 @@ def recommend(
         return _rec(
             row_id,
             name,
+            "weapon",
             bucket,
             "keep",
             confidence,
@@ -197,29 +203,29 @@ def recommend(
         )
 
     if combo_reason:
-        return _rec(row_id, name, "keep", "keep", "high", combo_reason, sources, current_tag, signals=signals)
+        return _rec(row_id, name, "weapon", "keep", "keep", "high", combo_reason, sources, current_tag, signals=signals)
 
     if "PVP" in notes.upper() and perks & HIGH_VALUE_TERMS:
         reason = "personal PvP note plus useful perk structure; preserve for feel-based testing"
         if replacement:
             reason += f"; newer/updated version exists. Best path: {replacement}"
-            return _rec(row_id, name, "keep-refarm", "keep", "medium", reason, sources, current_tag, signals=signals)
+            return _rec(row_id, name, "weapon", "keep-refarm", "keep", "medium", reason, sources, current_tag, signals=signals)
         tag = "keep" if config.pvp_caution != "strict" else "archive"
-        return _rec(row_id, name, "needs-review", tag, "medium", reason, sources, current_tag, signals=signals)
+        return _rec(row_id, name, "weapon", "needs-review", tag, "medium", reason, sources, current_tag, signals=signals)
 
     high_value_hits = sorted(perks & HIGH_VALUE_TERMS)
     if tier >= 5 and len(high_value_hits) >= 2:
         reason = f"Tier 5 roll with multiple useful terms ({', '.join(high_value_hits[:2])})"
         if replacement:
             reason += f"; keep until newer/updated replacement. Best path: {replacement}"
-            return _rec(row_id, name, "keep-refarm", "keep", "medium", reason, sources, current_tag, signals=signals)
-        return _rec(row_id, name, "keep", "keep", "medium", reason, sources, current_tag, signals=signals)
+            return _rec(row_id, name, "weapon", "keep-refarm", "keep", "medium", reason, sources, current_tag, signals=signals)
+        return _rec(row_id, name, "weapon", "keep", "keep", "medium", reason, sources, current_tag, signals=signals)
 
     if _is_locked(row) and config.locked_behavior == "review":
         reason = "locked in DIM but no standout current role found; confirm before changing"
         if replacement:
             reason += f". Newer/updated version exists. Best path: {replacement}"
-        return _rec(row_id, name, "needs-review", _preserve_tag(current_tag), "low", reason, sources, current_tag, signals=signals)
+        return _rec(row_id, name, "weapon", "needs-review", _preserve_tag(current_tag), "low", reason, sources, current_tag, signals=signals)
 
     if replacement:
         tag = "junk"
@@ -235,6 +241,7 @@ def recommend(
         return _rec(
             row_id,
             name,
+            "weapon",
             bucket,
             tag,
             confidence,
@@ -248,6 +255,7 @@ def recommend(
         return _rec(
             row_id,
             name,
+            "weapon",
             "needs-review",
             "keep",
             "low",
@@ -261,6 +269,7 @@ def recommend(
         return _rec(
             row_id,
             name,
+            "weapon",
             "needs-review",
             current_tag,
             "low",
@@ -276,6 +285,7 @@ def recommend(
     return _rec(
         row_id,
         name,
+        "weapon",
         "junk",
         "junk",
         "medium",
@@ -286,9 +296,181 @@ def recommend(
     )
 
 
+def recommend_armor(
+    row: dict[str, str],
+    config: AuditConfig | None = None,
+    armor_sets: ArmorSetIndex | None = None,
+) -> Recommendation:
+    config = config or AuditConfig()
+    row_id = row.get("Id", "")
+    name = row.get("Name", "")
+    current_tag = row.get("Tag") or ""
+    rarity = row.get("Rarity", "")
+    armor_type = row.get("Type", "armor")
+    notes = row.get("Notes") or ""
+    tier = int_field(row, "Tier")
+    power = int_field(row, "Power")
+    total = _armor_total(row)
+    max_stat = max(_armor_stats(row), default=0)
+    two_spikes = sorted(_armor_stats(row), reverse=True)[:2]
+    energy_capacity = _first_int(row, ("Energy Capacity", "Energy", "Capacity"))
+    masterwork_tier = _first_int(row, ("Masterwork Tier", "Masterwork"))
+    sources = ["DIM armor CSV"]
+    signals = _intent_signals(row, config)
+    set_rating = _armor_set_rating(row, armor_sets)
+    if set_rating:
+        sources.append("armor set ratings")
+        signals.append(f"set:{set_rating.set_name}")
+        signals.append(f"set-rating:{set_rating.best_rating}")
+    if total:
+        signals.append(f"armor-total:{total}")
+    if max_stat:
+        signals.append(f"armor-spike:{max_stat}")
+
+    if rarity == "Exotic":
+        return _rec(
+            row_id,
+            name,
+            "armor",
+            "protect",
+            _preserve_tag(current_tag),
+            "high",
+            "exotic armor preserved for build coverage",
+            sources,
+            current_tag,
+            signals=signals,
+        )
+
+    if _is_locked(row) and config.locked_behavior == "protect":
+        return _rec(
+            row_id,
+            name,
+            "armor",
+            "protect",
+            _preserve_tag(current_tag),
+            "medium",
+            "locked armor protected by audit configuration",
+            sources,
+            current_tag,
+            signals=signals,
+        )
+
+    if notes:
+        return _rec(
+            row_id,
+            name,
+            "armor",
+            "needs-review",
+            _preserve_tag(current_tag),
+            "medium",
+            "armor has a personal note; review before changing",
+            sources,
+            current_tag,
+            signals=signals,
+        )
+
+    if energy_capacity >= 10 or masterwork_tier >= 10:
+        return _rec(
+            row_id,
+            name,
+            "armor",
+            "protect",
+            _preserve_tag(current_tag),
+            "medium",
+            "masterworked or fully upgraded armor preserved as investment",
+            sources,
+            current_tag,
+            signals=signals,
+        )
+
+    if armor_type.lower() == "class item":
+        return _rec(
+            row_id,
+            name,
+            "armor",
+            "needs-review",
+            _preserve_tag(current_tag),
+            "low",
+            "class item cleanup needs duplicate/build context",
+            sources,
+            current_tag,
+            signals=signals,
+        )
+
+    if set_rating and rating_value(set_rating.best_rating) >= rating_value("A-"):
+        reason = f"high-rated {set_rating.label}"
+        if total:
+            reason += f"; {total} total"
+        return _rec(row_id, name, "armor", "keep", "keep", "medium", reason, sources, current_tag, signals=signals)
+
+    if set_rating and rating_value(set_rating.best_rating) >= rating_value("B+"):
+        reason = f"useful {set_rating.label}; review stat fit"
+        if total:
+            reason += f"; {total} total"
+        return _rec(row_id, name, "armor", "needs-review", "keep", "low", reason, sources, current_tag, signals=signals)
+
+    if total >= 66 or max_stat >= 27 or (len(two_spikes) == 2 and two_spikes[0] >= 23 and two_spikes[1] >= 20):
+        reason = f"strong armor stat profile"
+        if total:
+            reason += f" with {total} total"
+        if max_stat:
+            reason += f" and {max_stat} peak stat"
+        return _rec(row_id, name, "armor", "keep", "keep", "medium", reason, sources, current_tag, signals=signals)
+
+    if tier >= 5:
+        return _rec(
+            row_id,
+            name,
+            "armor",
+            "needs-review",
+            "keep",
+            "low",
+            "Tier 5 armor without a strong stat read; review for Armor 3.0 role",
+            sources,
+            current_tag,
+            signals=signals,
+        )
+
+    if _is_locked(row) and config.locked_behavior == "review":
+        return _rec(
+            row_id,
+            name,
+            "armor",
+            "needs-review",
+            _preserve_tag(current_tag),
+            "low",
+            "locked armor has no strong stat signal; confirm before changing",
+            sources,
+            current_tag,
+            signals=signals,
+        )
+
+    if config.cleanup_mode == "gentle" and current_tag in {"favorite", "keep"}:
+        return _rec(
+            row_id,
+            name,
+            "armor",
+            "needs-review",
+            current_tag,
+            "low",
+            "gentle mode preserves existing armor tag for human review",
+            sources,
+            current_tag,
+            signals=signals,
+        )
+
+    reason = "no exotic, lock, note, investment, Tier 5, or strong stat profile found"
+    if total:
+        reason += f"; {total} total"
+    if power and config.low_power_below and power <= config.low_power_below:
+        reason += f"; power {power} is below low-power review threshold"
+    return _rec(row_id, name, "armor", "junk", "junk", "medium", reason, sources, current_tag, signals=signals)
+
+
 def _rec(
     item_id: str,
     name: str,
+    kind: str,
     bucket: str,
     tag: str,
     confidence: str,
@@ -300,6 +482,7 @@ def _rec(
     return Recommendation(
         item_id=item_id,
         name=name,
+        kind=kind,
         bucket=bucket,
         tag=tag,
         confidence=confidence,
@@ -346,6 +529,55 @@ def _intent_signals(row: dict[str, str], config: AuditConfig) -> list[str]:
     if (row.get("Holofoil") or "").lower() == "true":
         signals.append("holofoil")
     return signals
+
+
+def _armor_total(row: dict[str, str]) -> int:
+    total = _first_int(row, ("Total", "Base Total", "Stat Total", "Stats Total"))
+    if total:
+        return total
+    stats = _armor_stats(row)
+    return sum(stats) if stats else 0
+
+
+def _armor_stats(row: dict[str, str]) -> list[int]:
+    values: list[int] = []
+    for stat in ("Mobility", "Resilience", "Recovery", "Discipline", "Intellect", "Strength"):
+        value = _first_int(row, (stat, f"Base {stat}", f"{stat} (Base)", f"Stat {stat}"))
+        if value:
+            values.append(value)
+    return values
+
+
+def _armor_set_rating(row: dict[str, str], armor_sets: ArmorSetIndex | None):
+    if not armor_sets:
+        return None
+    for field in ("Set Name", "Armor Set", "Set", "Set Bonus", "Armor Set Name"):
+        value = row.get(field, "")
+        if value:
+            found = armor_sets.get(normalize_set_name(value))
+            if found:
+                return found
+    return armor_sets.get(normalize_set_name(row.get("Name", "")))
+
+
+def _first_int(row: dict[str, str], fields: tuple[str, ...]) -> int:
+    normalized = {_normalize_field(key): value for key, value in row.items()}
+    for field in fields:
+        value = int_field(row, field)
+        if value:
+            return value
+        value = normalized.get(_normalize_field(field), "")
+        try:
+            parsed = int(value)
+        except (TypeError, ValueError):
+            parsed = 0
+        if parsed:
+            return parsed
+    return 0
+
+
+def _normalize_field(field: str) -> str:
+    return "".join(ch for ch in field.lower() if ch.isalnum())
 
 
 def _exact_combo_reason(perks: set[str]) -> str:

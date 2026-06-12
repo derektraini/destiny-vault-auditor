@@ -14,6 +14,7 @@ def write_summary(path: Path, recommendations: list[Recommendation], config: Aud
     buckets = Counter(rec.bucket for rec in recommendations)
     tags = Counter(rec.tag for rec in recommendations)
     ranks = Counter(rec.rank for rec in recommendations)
+    kinds = Counter(rec.kind for rec in recommendations)
     lines = [
         "# Destiny Vault Audit Summary",
         "",
@@ -30,6 +31,7 @@ def write_summary(path: Path, recommendations: list[Recommendation], config: Aud
             "## Counts",
             "",
             f"- Items reviewed: {len(recommendations)}",
+            f"- Item kinds: {', '.join(f'{kind} {count}' for kind, count in sorted(kinds.items()))}",
             f"- Proposed tags: {', '.join(f'{tag} {count}' for tag, count in sorted(tags.items()))}",
             f"- Review ranks: {', '.join(f'{rank} {count}' for rank, count in sorted(ranks.items()))}",
             "",
@@ -63,6 +65,7 @@ def write_html(path: Path, recommendations: list[Recommendation], config: AuditC
     payload = json.dumps(data)
     config_payload = json.dumps(config.summary)
     bucket_options = sorted({rec.bucket for rec in recommendations})
+    kind_options = sorted({rec.kind for rec in recommendations})
     rank_options = sorted({rec.rank for rec in recommendations if rec.rank})
     tag_options = sorted({rec.tag for rec in recommendations})
     html_text = f"""<!doctype html>
@@ -106,6 +109,7 @@ def write_html(path: Path, recommendations: list[Recommendation], config: AuditC
     <section class="preflight" id="preflight"></section>
     <div class="controls">
       <input id="search" type="search" placeholder="Search weapons or reasons">
+      <select id="kind"><option value="">All gear</option>{''.join(f'<option>{html.escape(kind)}</option>' for kind in kind_options)}</select>
       <select id="rank"><option value="">All ranks</option>{''.join(f'<option>{html.escape(rank)}</option>' for rank in rank_options)}</select>
       <select id="bucket"><option value="">All buckets</option>{''.join(f'<option>{html.escape(bucket)}</option>' for bucket in bucket_options)}</select>
       <select id="tag"><option value="">All tags</option>{''.join(f'<option>{html.escape(tag)}</option>' for tag in tag_options)}</select>
@@ -126,6 +130,7 @@ def write_html(path: Path, recommendations: list[Recommendation], config: AuditC
     const config = {config_payload};
     const rowsEl = document.getElementById('rows');
     const searchEl = document.getElementById('search');
+    const kindEl = document.getElementById('kind');
     const rankEl = document.getElementById('rank');
     const bucketEl = document.getElementById('bucket');
     const tagEl = document.getElementById('tag');
@@ -157,11 +162,12 @@ def write_html(path: Path, recommendations: list[Recommendation], config: AuditC
 
     function matches(rec) {{
       const query = searchEl.value.trim().toLowerCase();
+      if (kindEl.value && rec.kind !== kindEl.value) return false;
       if (rankEl.value && rec.rank !== rankEl.value) return false;
       if (bucketEl.value && rec.bucket !== bucketEl.value) return false;
       if (tagEl.value && rec.tag !== tagEl.value) return false;
       if (!query) return true;
-      return [rec.name, rec.reason, rec.comment, rec.bucket, rec.tag, rec.rank, ...(rec.signals || [])].join(' ').toLowerCase().includes(query);
+      return [rec.name, rec.kind, rec.reason, rec.comment, rec.bucket, rec.tag, rec.rank, ...(rec.signals || [])].join(' ').toLowerCase().includes(query);
     }}
 
     function render() {{
@@ -169,7 +175,7 @@ def write_html(path: Path, recommendations: list[Recommendation], config: AuditC
       renderStats(visible);
       rowsEl.innerHTML = visible.map(rec => `
         <tr data-bucket="${{rec.bucket}}">
-          <td><strong>${{escapeHtml(rec.name)}}</strong><div class="muted">${{escapeHtml(rec.item_id)}}</div></td>
+          <td><strong>${{escapeHtml(rec.name)}}</strong><div class="muted">${{escapeHtml(rec.kind)}} · ${{escapeHtml(rec.item_id)}}</div></td>
           <td><span class="pill">${{escapeHtml(rec.bucket)}}</span><div class="muted">${{escapeHtml(rec.rank)}}</div></td>
           <td>${{escapeHtml(rec.tag)}}</td>
           <td>${{escapeHtml(rec.confidence)}}</td>
@@ -181,7 +187,7 @@ def write_html(path: Path, recommendations: list[Recommendation], config: AuditC
       return String(value ?? '').replace(/[&<>"']/g, c => ({{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}}[c]));
     }}
 
-    for (const el of [searchEl, rankEl, bucketEl, tagEl]) el.addEventListener('input', render);
+    for (const el of [searchEl, kindEl, rankEl, bucketEl, tagEl]) el.addEventListener('input', render);
     document.getElementById('export').addEventListener('click', () => {{
       const blob = new Blob([JSON.stringify({{schema: 'destiny-vault-auditor.review.v1', config, recommendations}}, null, 2)], {{type: 'application/json'}});
       const url = URL.createObjectURL(blob);

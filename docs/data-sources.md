@@ -96,6 +96,14 @@ Source:
 
 Use for exact perk behavior, hidden mechanics, cooldowns, scalar values, and practical effect descriptions. This should be treated as a high-quality mechanics source when available.
 
+### Armor Set Rating Sheets
+
+Use curated armor set bonus sheets as supporting armor sources. These should influence recommendations when a DIM export exposes a matching set name, but they should not override personal notes, locked state, exotics, or strong stat profiles by themselves.
+
+Current supported sheet:
+
+- https://docs.google.com/spreadsheets/d/14LnzOhmeXzKaSV3OR35pQJkclg6vLC4YmKtlKTctY3o/htmlview?gid=631213508
+
 ### Curated Wishlists And Triage Notes
 
 Use curated wishlists, DIM wishlist notes, and triage panels as source-backed opinion layers. These sources are valuable because they often encode:
@@ -162,9 +170,10 @@ These sources can answer "what are players excited about?" but not always "what 
 2. Current patch notes.
 3. destiny.report current weapon metadata.
 4. D2Foundry / Clarity-style mechanics and perk data.
-5. User vault metadata: crafted state, weapon level, notes, kill counts, holofoil, loadouts.
-6. Curated wishlist/triage notes with dates and provenance.
-7. Community meta and popularity.
+5. Armor set rating sheets with dates and provenance.
+6. User vault metadata: crafted state, weapon level, notes, kill counts, holofoil, loadouts.
+7. Curated wishlist/triage notes with dates and provenance.
+8. Community meta and popularity.
 
 ## Provenance Requirement
 

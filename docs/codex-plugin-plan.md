@@ -113,7 +113,7 @@ Read-only Bungie OAuth may be useful later for convenience, but the current prod
 ### Phase 1: File-Based Prototype
 
 - Parse DIM weapon CSV.
-- Parse DIM armor CSV.
+- Parse DIM armor CSV with conservative first-pass scoring.
 - Parse destiny.report weapon JSON.
 - Produce markdown summary and DIM import CSV.
 - Unit test scoring rules with synthetic fixtures.

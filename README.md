@@ -8,15 +8,17 @@ It reads DIM exports, scores weapons with source-backed rules, and generates rev
 
 Works today:
 
-- DIM weapons CSV parsing.
+- DIM weapons and armor CSV parsing.
 - Optional destiny.report weapon JSON input.
+- Optional armor set rating CSV input.
 - Weapon roll scoring with keep/junk/refarm/protect buckets.
+- Conservative armor scoring for exotics, locked items, notes, investment, class items, and stat profiles.
 - Light audit config for cleanup posture.
 - Output files: `dim-import.csv`, `audit-summary.md`, `decisions.json`, `vault-review.html`.
 
 Planned:
 
-- Armor CSV parsing and Armor 3.0 scoring.
+- Deeper Armor 3.0 archetype/build scoring.
 - Duplicate grouping.
 - Wishlist/triage source ingestion.
 - Codex plugin packaging.
@@ -51,7 +53,9 @@ Run the synthetic fixture audit:
 ```bash
 python3 scripts/destiny-vault-auditor.py \
   --weapons-csv tests/fixtures/synthetic_dim_weapons.csv \
+  --armor-csv tests/fixtures/synthetic_dim_armor.csv \
   --destiny-report-json tests/fixtures/synthetic_destiny_report.json \
+  --armor-set-ratings-csv tests/fixtures/synthetic_armor_set_ratings.csv \
   --out-dir outputs/demo
 ```
 
@@ -63,7 +67,7 @@ open outputs/demo/vault-review.html
 
 ## Real DIM Export
 
-Export weapons from DIM and put the CSV in an ignored/private path such as `dim-exports/`.
+Export weapons and armor from DIM and put the CSVs in an ignored/private path such as `dim-exports/`.
 
 ```bash
 mkdir -p dim-exports
@@ -71,12 +75,22 @@ mkdir -p dim-exports
 
 The CLI refuses unignored CSV inputs inside the repo by default. Files under `dim-exports/` and `*.private.csv` are ignored by Git.
 
+Optional armor set source:
+
+```bash
+mkdir -p source-cache
+curl -L "https://docs.google.com/spreadsheets/d/14LnzOhmeXzKaSV3OR35pQJkclg6vLC4YmKtlKTctY3o/export?format=csv&gid=631213508" \
+  -o source-cache/armor-set-ratings.csv
+```
+
 Run an audit:
 
 ```bash
 python3 scripts/destiny-vault-auditor.py \
   --weapons-csv dim-exports/weapons.private.csv \
+  --armor-csv dim-exports/armor.private.csv \
   --destiny-report-json path/to/destiny-report-weapons.json \
+  --armor-set-ratings-csv source-cache/armor-set-ratings.csv \
   --out-dir outputs/my-audit \
   --cleanup-mode clean-slate \
   --locked-behavior review \
@@ -90,6 +104,7 @@ Without destiny.report data:
 ```bash
 python3 scripts/destiny-vault-auditor.py \
   --weapons-csv dim-exports/weapons.private.csv \
+  --armor-csv dim-exports/armor.private.csv \
   --out-dir outputs/my-audit
 ```
 
@@ -97,6 +112,10 @@ Review `outputs/my-audit/vault-review.html` before importing `outputs/my-audit/d
 
 ## Config
 
+- `--weapons-csv`: DIM weapons CSV export.
+- `--armor-csv`: DIM armor CSV export.
+- `--destiny-report-json`: optional destiny.report weapon JSON export.
+- `--armor-set-ratings-csv`: optional armor set bonus rating sheet CSV.
 - `--cleanup-mode`: `gentle`, `clean-slate`, `aggressive`.
 - `--high-level`: weapon level above this is protected. Default: `30`.
 - `--invested-level`: weapon level above this gets investment context. Default: `20`.
@@ -115,6 +134,7 @@ Recommended first real pass:
 ## Outputs
 
 - `dim-import.csv`: DIM-compatible tag/comment import.
+- `dim-import-weapons.csv` and `dim-import-armor.csv`: written when both inputs are provided.
 - `audit-summary.md`: counts, config, buckets, and recommendations.
 - `decisions.json`: structured recommendations and run config.
 - `vault-review.html`: local review artifact with filters, ranks, sources, and signal chips.
@@ -128,10 +148,13 @@ Recommended first real pass:
 - `needs-review`: conflicting signals, PvP feel, source disagreement, or low confidence.
 - `junk`: no current role, protection signal, or bridge value found.
 
+Armor scoring is intentionally cautious. It protects/reviews more than it junks until duplicate grouping and deeper Armor 3.0 rules exist.
+
 ## Local Testing Checklist
 
 - Keep real DIM exports out of Git.
 - Use `dim-exports/` or `*.private.csv` for real vault files.
+- Use `source-cache/` for fetched public source files.
 - Start with `--locked-behavior review`.
 - Inspect `junk` and `replace-now` rows in HTML before importing anything.
 - Treat `dim-import.csv` as proposed metadata, not permission to dismantle.

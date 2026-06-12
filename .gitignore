@@ -14,3 +14,4 @@ build/
 .dva/
 vault-exports/
 dim-exports/
+source-cache/
