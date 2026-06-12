@@ -143,7 +143,7 @@ Recommended first real pass:
 
 ## Outputs
 
-- `dim-import.csv`: DIM-compatible tag/comment import.
+- `dim-import.csv`: DIM-compatible tag/comment import with `Name`, `Hash`, `Id`, `Tag`, and `Notes`.
 - `dim-import-weapons.csv` and `dim-import-armor.csv`: written when both inputs are provided.
 - `audit-summary.md`: counts, config, buckets, and recommendations.
 - `decisions.json`: structured recommendations, source inputs, and run config.
@@ -180,6 +180,7 @@ Armor scoring is intentionally cautious. It protects/reviews more than it junks 
 - `docs/audit-model.md`: scoring model.
 - `docs/configuration-ux.md`: light config UX.
 - `docs/codex-plugin-plan.md`: plugin plan.
+- `docs/friend-testing.md`: short share guide for testers.
 
 ## Safety
 

@@ -37,6 +37,8 @@ REQUIRED_ARMOR_FIELDS = {
     "Notes",
 }
 
+DIM_IMPORT_FIELDS = ["Name", "Hash", "Id", "Tag", "Notes"]
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Audit DIM weapon and armor CSVs and generate review artifacts.")
@@ -131,15 +133,14 @@ def main() -> None:
     recommendations = [rec for _, _, _, recs in inputs for rec in recs]
 
     out_dir = args.out_dir
-    combined_fields = _combined_fields([fields for _, fields, _, _ in inputs])
     combined_rows: list[dict[str, str]] = []
-    for name, fields, rows, recs in inputs:
-        output_rows = _apply_recommendations(rows, recs)
+    for name, _, rows, recs in inputs:
+        output_rows = _dim_import_rows(rows, recs)
         combined_rows.extend(output_rows)
         if len(inputs) > 1:
-            write_csv(out_dir / f"dim-import-{name}.csv", fields, output_rows)
+            write_csv(out_dir / f"dim-import-{name}.csv", DIM_IMPORT_FIELDS, output_rows)
 
-    write_csv(out_dir / "dim-import.csv", combined_fields, combined_rows)
+    write_csv(out_dir / "dim-import.csv", DIM_IMPORT_FIELDS, combined_rows)
     write_summary(out_dir / "audit-summary.md", recommendations, config, source_labels)
     write_decisions(out_dir / "decisions.json", recommendations, config, source_labels)
     write_html(out_dir / "vault-review.html", recommendations, config, source_labels)
@@ -151,12 +152,16 @@ def main() -> None:
     print(f"Wrote {out_dir / 'vault-review.html'}")
 
 
-def _apply_recommendations(rows: list[dict[str, str]], recs: list[Recommendation]) -> list[dict[str, str]]:
+def _dim_import_rows(rows: list[dict[str, str]], recs: list[Recommendation]) -> list[dict[str, str]]:
     output_rows = []
     for row, rec in zip(rows, recs, strict=True):
-        out = row.copy()
-        out["Tag"] = rec.tag
-        out["Notes"] = append_audit_note(out.get("Notes", ""), rec.comment)
+        out = {
+            "Name": row.get("Name", ""),
+            "Hash": row.get("Hash", ""),
+            "Id": row.get("Id", ""),
+            "Tag": rec.tag,
+            "Notes": append_audit_note(row.get("Notes", ""), rec.comment),
+        }
         output_rows.append(out)
     return output_rows
 
@@ -172,16 +177,6 @@ def _source_labels(args: argparse.Namespace) -> list[str]:
     if args.armor_set_ratings_csv:
         labels.append("armor set rating sheet")
     return labels
-
-
-def _combined_fields(field_lists: list[list[str]]) -> list[str]:
-    preferred = ["Name", "Hash", "Id", "Tag", "Notes"]
-    fields: list[str] = [field for field in preferred if any(field in field_list for field_list in field_lists)]
-    for field_list in field_lists:
-        for field in field_list:
-            if field not in fields:
-                fields.append(field)
-    return fields
 
 
 def _validate_input_path(parser: argparse.ArgumentParser, path: Path, allow_unignored: bool, label: str) -> None:

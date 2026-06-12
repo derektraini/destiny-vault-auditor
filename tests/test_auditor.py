@@ -90,7 +90,9 @@ class AuditorTests(unittest.TestCase):
                 self.assertTrue((out_dir / name).exists(), name)
 
             with (out_dir / "dim-import.csv").open(newline="", encoding="utf-8") as handle:
-                rows = list(csv.DictReader(handle))
+                reader = csv.DictReader(handle)
+                self.assertEqual(reader.fieldnames, ["Name", "Hash", "Id", "Tag", "Notes"])
+                rows = list(reader)
             by_name = {row["Name"]: row for row in rows}
             self.assertEqual(by_name["Old Rocket"]["Tag"], "junk")
             self.assertIn("DVA: REPLACE-NOW", by_name["Old Rocket"]["Notes"])
@@ -149,6 +151,10 @@ class AuditorTests(unittest.TestCase):
             self.assertIn("Item kinds: armor 5, weapon 5", summary)
             self.assertIn("## Source Inputs", summary)
             self.assertIn("armor set rating sheet", summary)
+
+            for name in ["dim-import.csv", "dim-import-weapons.csv", "dim-import-armor.csv"]:
+                with (out_dir / name).open(newline="", encoding="utf-8") as handle:
+                    self.assertEqual(csv.DictReader(handle).fieldnames, ["Name", "Hash", "Id", "Tag", "Notes"])
 
     def test_locked_behavior_can_protect_or_review(self) -> None:
         _, rows = read_csv(FIXTURES / "synthetic_dim_weapons.csv")
