@@ -2,7 +2,7 @@
 
 A local-first Destiny 2 vault auditing companion for Codex.
 
-It reads DIM exports, scores weapons with source-backed rules, and generates review artifacts plus a DIM import CSV. It never dismantles, equips, transfers, locks, unlocks, writes to DIM Sync, or uploads vault data.
+It reads DIM weapon/armor exports, scores gear with source-backed rules, and generates review artifacts plus a DIM import CSV. It is especially useful for returning players with old vaults who need help deciding what is still worth keeping. It never dismantles, equips, transfers, locks, unlocks, writes to DIM Sync, or uploads vault data.
 
 ## Status
 
@@ -110,6 +110,16 @@ python3 scripts/destiny-vault-auditor.py \
 
 Review `outputs/my-audit/vault-review.html` before importing `outputs/my-audit/dim-import.csv` into DIM.
 
+## Returning Player Flow
+
+1. Export both weapons and armor from DIM.
+2. Add optional sources when available: destiny.report weapon metadata and the armor set rating sheet.
+3. Run in `clean-slate` mode with `--locked-behavior review`.
+4. In the HTML artifact, start with `junk`, `replace-now`, and `needs-review`.
+5. Import the DIM CSV only after the recommendations make sense.
+
+The tool ranks and categorizes gear using vault facts, current-ish source metadata, perk/set heuristics, and personal-intent signals like locks, notes, crafted state, and weapon level.
+
 ## Config
 
 - `--weapons-csv`: DIM weapons CSV export.
@@ -136,7 +146,7 @@ Recommended first real pass:
 - `dim-import.csv`: DIM-compatible tag/comment import.
 - `dim-import-weapons.csv` and `dim-import-armor.csv`: written when both inputs are provided.
 - `audit-summary.md`: counts, config, buckets, and recommendations.
-- `decisions.json`: structured recommendations and run config.
+- `decisions.json`: structured recommendations, source inputs, and run config.
 - `vault-review.html`: local review artifact with filters, ranks, sources, and signal chips.
 
 ## Buckets

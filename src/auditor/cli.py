@@ -100,6 +100,7 @@ def main() -> None:
 
     destiny_report = load_destiny_report(args.destiny_report_json) if args.destiny_report_json else None
     armor_sets = load_armor_set_ratings(args.armor_set_ratings_csv) if args.armor_set_ratings_csv else None
+    source_labels = _source_labels(args)
     config = AuditConfig(
         cleanup_mode=args.cleanup_mode,
         high_level_threshold=args.high_level,
@@ -139,9 +140,9 @@ def main() -> None:
             write_csv(out_dir / f"dim-import-{name}.csv", fields, output_rows)
 
     write_csv(out_dir / "dim-import.csv", combined_fields, combined_rows)
-    write_summary(out_dir / "audit-summary.md", recommendations, config)
-    write_decisions(out_dir / "decisions.json", recommendations, config)
-    write_html(out_dir / "vault-review.html", recommendations, config)
+    write_summary(out_dir / "audit-summary.md", recommendations, config, source_labels)
+    write_decisions(out_dir / "decisions.json", recommendations, config, source_labels)
+    write_html(out_dir / "vault-review.html", recommendations, config, source_labels)
 
     print(f"Reviewed {len(recommendations)} items")
     print(f"Wrote {out_dir / 'dim-import.csv'}")
@@ -158,6 +159,19 @@ def _apply_recommendations(rows: list[dict[str, str]], recs: list[Recommendation
         out["Notes"] = append_audit_note(out.get("Notes", ""), rec.comment)
         output_rows.append(out)
     return output_rows
+
+
+def _source_labels(args: argparse.Namespace) -> list[str]:
+    labels: list[str] = []
+    if args.weapons_csv:
+        labels.append("DIM weapons CSV")
+    if args.armor_csv:
+        labels.append("DIM armor CSV")
+    if args.destiny_report_json:
+        labels.append("destiny.report weapon metadata")
+    if args.armor_set_ratings_csv:
+        labels.append("armor set rating sheet")
+    return labels
 
 
 def _combined_fields(field_lists: list[list[str]]) -> list[str]:

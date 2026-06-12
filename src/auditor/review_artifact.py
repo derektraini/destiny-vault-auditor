@@ -8,9 +8,15 @@ from pathlib import Path
 from .scoring import AuditConfig, Recommendation
 
 
-def write_summary(path: Path, recommendations: list[Recommendation], config: AuditConfig | None = None) -> None:
+def write_summary(
+    path: Path,
+    recommendations: list[Recommendation],
+    config: AuditConfig | None = None,
+    source_labels: list[str] | None = None,
+) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     config = config or AuditConfig()
+    source_labels = source_labels or []
     buckets = Counter(rec.bucket for rec in recommendations)
     tags = Counter(rec.tag for rec in recommendations)
     ranks = Counter(rec.rank for rec in recommendations)
@@ -25,6 +31,10 @@ def write_summary(path: Path, recommendations: list[Recommendation], config: Aud
     ]
     for key, value in config.summary.items():
         lines.append(f"- `{key}`: `{value}`")
+    if source_labels:
+        lines.extend(["", "## Source Inputs", ""])
+        for label in source_labels:
+            lines.append(f"- {label}")
     lines.extend(
         [
             "",
@@ -47,23 +57,36 @@ def write_summary(path: Path, recommendations: list[Recommendation], config: Aud
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
-def write_decisions(path: Path, recommendations: list[Recommendation], config: AuditConfig | None = None) -> None:
+def write_decisions(
+    path: Path,
+    recommendations: list[Recommendation],
+    config: AuditConfig | None = None,
+    source_labels: list[str] | None = None,
+) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     config = config or AuditConfig()
     payload = {
         "schema": "destiny-vault-auditor.decisions.v1",
         "config": config.summary,
+        "sources": source_labels or [],
         "recommendations": [rec.__dict__ | {"comment": rec.comment} for rec in recommendations],
     }
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
 
-def write_html(path: Path, recommendations: list[Recommendation], config: AuditConfig | None = None) -> None:
+def write_html(
+    path: Path,
+    recommendations: list[Recommendation],
+    config: AuditConfig | None = None,
+    source_labels: list[str] | None = None,
+) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     config = config or AuditConfig()
+    source_labels = source_labels or []
     data = [rec.__dict__ | {"comment": rec.comment} for rec in recommendations]
     payload = json.dumps(data)
     config_payload = json.dumps(config.summary)
+    sources_payload = json.dumps(source_labels)
     bucket_options = sorted({rec.bucket for rec in recommendations})
     kind_options = sorted({rec.kind for rec in recommendations})
     rank_options = sorted({rec.rank for rec in recommendations if rec.rank})
@@ -128,6 +151,7 @@ def write_html(path: Path, recommendations: list[Recommendation], config: AuditC
   <script>
     const recommendations = {payload};
     const config = {config_payload};
+    const sources = {sources_payload};
     const rowsEl = document.getElementById('rows');
     const searchEl = document.getElementById('search');
     const kindEl = document.getElementById('kind');
@@ -146,8 +170,9 @@ def write_html(path: Path, recommendations: list[Recommendation], config: AuditC
         ['pvp_caution', 'PvP caution'],
         ['low_power_below', 'Low power note']
       ];
+      if (sources.length) labels.push(['__sources', 'Sources']);
       preflightEl.innerHTML = labels.map(([key, label]) => `
-        <div class="config-chip"><span>${{escapeHtml(label)}}</span><strong>${{escapeHtml(config[key])}}</strong></div>
+        <div class="config-chip"><span>${{escapeHtml(label)}}</span><strong>${{escapeHtml(key === '__sources' ? sources.join(', ') : config[key])}}</strong></div>
       `).join('');
     }}
 
@@ -189,7 +214,7 @@ def write_html(path: Path, recommendations: list[Recommendation], config: AuditC
 
     for (const el of [searchEl, kindEl, rankEl, bucketEl, tagEl]) el.addEventListener('input', render);
     document.getElementById('export').addEventListener('click', () => {{
-      const blob = new Blob([JSON.stringify({{schema: 'destiny-vault-auditor.review.v1', config, recommendations}}, null, 2)], {{type: 'application/json'}});
+      const blob = new Blob([JSON.stringify({{schema: 'destiny-vault-auditor.review.v1', config, sources, recommendations}}, null, 2)], {{type: 'application/json'}});
       const url = URL.createObjectURL(blob);
       const a = Object.assign(document.createElement('a'), {{href: url, download: 'decisions.json'}});
       a.click();

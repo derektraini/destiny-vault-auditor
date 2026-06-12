@@ -141,8 +141,14 @@ class AuditorTests(unittest.TestCase):
             self.assertIn('"kind": "weapon"', decisions)
             self.assertIn('"kind": "armor"', decisions)
             self.assertIn('"armor set ratings"', decisions)
+            self.assertIn('"DIM weapons CSV"', decisions)
+            self.assertIn('"DIM armor CSV"', decisions)
+            self.assertIn('"destiny.report weapon metadata"', decisions)
+            self.assertIn('"armor set rating sheet"', decisions)
             summary = (out_dir / "audit-summary.md").read_text(encoding="utf-8")
             self.assertIn("Item kinds: armor 5, weapon 5", summary)
+            self.assertIn("## Source Inputs", summary)
+            self.assertIn("armor set rating sheet", summary)
 
     def test_locked_behavior_can_protect_or_review(self) -> None:
         _, rows = read_csv(FIXTURES / "synthetic_dim_weapons.csv")
