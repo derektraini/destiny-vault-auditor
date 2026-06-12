@@ -28,7 +28,7 @@ Requirements:
 
 - Python 3.10+.
 - Git.
-- No Python packages are required for the current prototype.
+- No install or Python packages are required for the current prototype.
 
 Clone and enter the repo:
 
@@ -37,17 +37,10 @@ git clone https://github.com/derektraini/destiny-vault-auditor.git
 cd destiny-vault-auditor
 ```
 
-Optional virtual environment:
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-```
-
 Verify the CLI works:
 
 ```bash
-PYTHONPATH=src python3 -m auditor.cli --help
+python3 scripts/destiny-vault-auditor.py --help
 python3 -m unittest discover -s tests
 ```
 
@@ -56,7 +49,7 @@ python3 -m unittest discover -s tests
 Run the synthetic fixture audit:
 
 ```bash
-PYTHONPATH=src python3 -m auditor.cli \
+python3 scripts/destiny-vault-auditor.py \
   --weapons-csv tests/fixtures/synthetic_dim_weapons.csv \
   --destiny-report-json tests/fixtures/synthetic_destiny_report.json \
   --out-dir outputs/demo
@@ -76,10 +69,12 @@ Export weapons from DIM and put the CSV in an ignored/private path such as `dim-
 mkdir -p dim-exports
 ```
 
+The CLI refuses unignored CSV inputs inside the repo by default. Files under `dim-exports/` and `*.private.csv` are ignored by Git.
+
 Run an audit:
 
 ```bash
-PYTHONPATH=src python3 -m auditor.cli \
+python3 scripts/destiny-vault-auditor.py \
   --weapons-csv dim-exports/weapons.private.csv \
   --destiny-report-json path/to/destiny-report-weapons.json \
   --out-dir outputs/my-audit \
@@ -93,7 +88,7 @@ PYTHONPATH=src python3 -m auditor.cli \
 Without destiny.report data:
 
 ```bash
-PYTHONPATH=src python3 -m auditor.cli \
+python3 scripts/destiny-vault-auditor.py \
   --weapons-csv dim-exports/weapons.private.csv \
   --out-dir outputs/my-audit
 ```
@@ -136,6 +131,7 @@ Recommended first real pass:
 ## Local Testing Checklist
 
 - Keep real DIM exports out of Git.
+- Use `dim-exports/` or `*.private.csv` for real vault files.
 - Start with `--locked-behavior review`.
 - Inspect `junk` and `replace-now` rows in HTML before importing anything.
 - Treat `dim-import.csv` as proposed metadata, not permission to dismantle.
@@ -144,6 +140,7 @@ Recommended first real pass:
 ## Repo Map
 
 - `src/auditor/`: CLI and audit engine prototype.
+- `scripts/destiny-vault-auditor.py`: no-install CLI wrapper.
 - `tests/fixtures/`: synthetic, non-personal fixtures.
 - `docs/product-brief.md`: product direction.
 - `docs/data-sources.md`: source ranking.

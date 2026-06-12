@@ -94,6 +94,67 @@ class AuditorTests(unittest.TestCase):
         self.assertEqual(review.rank, "review")
         self.assertIn("locked:review", review.signals)
 
+    def test_cli_rejects_missing_required_columns(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            bad_csv = Path(tmp) / "bad.csv"
+            bad_csv.write_text("Name,Id\nAlmost Item,item-1\n", encoding="utf-8")
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "auditor.cli",
+                    "--weapons-csv",
+                    str(bad_csv),
+                    "--out-dir",
+                    str(Path(tmp) / "out"),
+                ],
+                cwd=ROOT,
+                env={"PYTHONPATH": str(SRC)},
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("missing required DIM columns", result.stderr)
+
+    def test_cli_rejects_unignored_repo_csv(self) -> None:
+        unsafe_csv = ROOT / "unsafe_dim_export_for_test.csv"
+        unsafe_csv.write_text((FIXTURES / "synthetic_dim_weapons.csv").read_text(encoding="utf-8"), encoding="utf-8")
+        try:
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "auditor.cli",
+                    "--weapons-csv",
+                    str(unsafe_csv),
+                    "--out-dir",
+                    str(ROOT / "outputs" / "unsafe-test"),
+                ],
+                cwd=ROOT,
+                env={"PYTHONPATH": str(SRC)},
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+        finally:
+            unsafe_csv.unlink(missing_ok=True)
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("inside the repo but is not ignored by Git", result.stderr)
+
+    def test_no_install_wrapper_shows_help(self) -> None:
+        result = subprocess.run(
+            [sys.executable, "scripts/destiny-vault-auditor.py", "--help"],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=True,
+        )
+
+        self.assertIn("Audit a DIM weapon CSV", result.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()
