@@ -18,6 +18,7 @@ from auditor.armor_sets import load_armor_set_ratings
 from auditor.destiny_report import load_destiny_report
 from auditor.dim_csv import read_csv
 from auditor.scoring import AuditConfig, recommend, recommend_armor
+from auditor.wishlist import load_wishlist
 
 
 class AuditorTests(unittest.TestCase):
@@ -201,6 +202,83 @@ class AuditorTests(unittest.TestCase):
             html = (out_dir / "vault-review.html").read_text(encoding="utf-8")
             self.assertIn("Duplicate Queue", html)
             self.assertIn("duplicateSummary", html)
+
+    def test_wishlist_loader_supports_json_and_csv(self) -> None:
+        _, rows = read_csv(FIXTURES / "synthetic_dim_weapons.csv")
+        by_id = {row["Id"]: row for row in rows}
+        index = load_wishlist(FIXTURES / "synthetic_wishlist.json")
+
+        exact = index.match(by_id["item-2"])
+        partial = index.match(by_id["item-5"])
+
+        self.assertIsNotNone(exact)
+        self.assertEqual(exact.strength, "exact")
+        self.assertEqual(exact.entry.role, "legacy boss DPS bridge")
+        self.assertIsNotNone(partial)
+        self.assertEqual(partial.strength, "partial")
+        self.assertTrue(partial.stale)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            csv_path = Path(tmp) / "wishlist.csv"
+            csv_path.write_text(
+                "name,role,recommended_combos,source_name,source_date\n"
+                "Old Rocket,spreadsheet DPS,Impulse Amplifier+Cluster Bomb,CSV Test,2026-06-01\n",
+                encoding="utf-8",
+            )
+            csv_index = load_wishlist(csv_path)
+            csv_match = csv_index.match(by_id["item-2"])
+
+        self.assertIsNotNone(csv_match)
+        self.assertEqual(csv_match.strength, "exact")
+        self.assertEqual(csv_match.entry.source_name, "CSV Test")
+
+    def test_cli_applies_wishlist_source_to_weapon_recommendations(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            out_dir = Path(tmp)
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "auditor.cli",
+                    "--weapons-csv",
+                    str(FIXTURES / "synthetic_dim_weapons.csv"),
+                    "--armor-csv",
+                    str(FIXTURES / "synthetic_dim_armor.csv"),
+                    "--armor-set-ratings-csv",
+                    str(FIXTURES / "synthetic_armor_set_ratings.csv"),
+                    "--destiny-report-json",
+                    str(FIXTURES / "synthetic_destiny_report.json"),
+                    "--wishlist-source",
+                    str(FIXTURES / "synthetic_wishlist.json"),
+                    "--out-dir",
+                    str(out_dir),
+                ],
+                cwd=ROOT,
+                env={"PYTHONPATH": str(SRC)},
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+
+            self.assertIn("Applied 2 wishlist/triage matches", result.stdout)
+            decisions = json.loads((out_dir / "decisions.json").read_text(encoding="utf-8"))
+            by_id = {rec["item_id"]: rec for rec in decisions["recommendations"]}
+            self.assertEqual(by_id["item-2"]["bucket"], "keep")
+            self.assertEqual(by_id["item-2"]["tag"], "keep")
+            self.assertIn("wishlist-match", by_id["item-2"]["signals"])
+            self.assertIn("legacy boss DPS bridge", by_id["item-2"]["reason"])
+            self.assertEqual(by_id["item-5"]["bucket"], "needs-review")
+            self.assertEqual(by_id["item-5"]["tag"], "archive")
+            self.assertIn("wishlist-partial", by_id["item-5"]["signals"])
+            self.assertIn("wishlist-stale", by_id["item-5"]["signals"])
+            self.assertIn("wishlist/triage source", decisions["sources"])
+
+            with (out_dir / "dim-import.csv").open(newline="", encoding="utf-8") as handle:
+                rows = {row["Id"]: row for row in csv.DictReader(handle)}
+            self.assertEqual(rows["item-2"]["Tag"], "keep")
+            self.assertIn("curated wishlist match", rows["item-2"]["Notes"])
+            self.assertEqual(rows["item-5"]["Tag"], "archive")
+            self.assertIn("source is older", rows["item-5"]["Notes"])
 
     def test_cli_applies_reviewed_decisions_to_final_dim_csv(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

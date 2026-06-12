@@ -1,0 +1,27 @@
+{
+  "source_name": "Synthetic triage panel",
+  "entries": [
+    {
+      "name": "Old Rocket",
+      "source_name": "Synthetic Endgame Notes",
+      "author": "Vault Testers",
+      "source_date": "2026-06-01",
+      "confidence": "high",
+      "contexts": ["PvE", "Endgame", "Heavy DPS"],
+      "role": "legacy boss DPS bridge",
+      "recommended_combos": [["Impulse Amplifier", "Cluster Bomb"]],
+      "notes": "Keep until a current tiered rocket replaces this exact role."
+    },
+    {
+      "name": "Plain Old Thing",
+      "source_name": "Old Scout Wishlist",
+      "author": "Archive Tester",
+      "source_date": "2024-02-04",
+      "confidence": "medium",
+      "contexts": ["PvE", "Utility"],
+      "role": "kinetic utility scout",
+      "recommended_combos": [["Threat Detector", "Explosive Payload"]],
+      "notes": "Older guidance: only one perk overlaps, so inspect before keeping."
+    }
+  ]
+}

@@ -12,6 +12,7 @@ from .dim_csv import append_audit_note, read_csv, write_csv
 from .duplicates import apply_duplicate_grouping
 from .review_artifact import write_decisions, write_html, write_summary
 from .scoring import AuditConfig, Recommendation, recommend, recommend_armor
+from .wishlist import apply_wishlist_matches, load_wishlist
 
 
 REQUIRED_WEAPON_FIELDS = {
@@ -49,6 +50,7 @@ def main() -> None:
     parser.add_argument("--armor-csv", type=Path, help="DIM armor CSV export.")
     parser.add_argument("--destiny-report-json", type=Path, help="destiny.report weapon JSON export.")
     parser.add_argument("--armor-set-ratings-csv", type=Path, help="Armor set rating sheet CSV export.")
+    parser.add_argument("--wishlist-source", type=Path, help="Local wishlist/triage JSON or CSV source.")
     parser.add_argument("--review-decisions-json", type=Path, help="Reviewed decisions JSON exported from vault-review.html.")
     parser.add_argument("--out-dir", type=Path, default=Path("outputs"), help="Output directory.")
     parser.add_argument(
@@ -103,11 +105,14 @@ def main() -> None:
         _validate_source_path(parser, args.destiny_report_json, "destiny.report JSON", ".json")
     if args.armor_set_ratings_csv:
         _validate_source_path(parser, args.armor_set_ratings_csv, "armor set ratings CSV", ".csv")
+    if args.wishlist_source:
+        _validate_wishlist_path(parser, args.wishlist_source)
     if args.review_decisions_json:
         _validate_source_path(parser, args.review_decisions_json, "review decisions JSON", ".json")
 
     destiny_report = load_destiny_report(args.destiny_report_json) if args.destiny_report_json else None
     armor_sets = load_armor_set_ratings(args.armor_set_ratings_csv) if args.armor_set_ratings_csv else None
+    wishlist = load_wishlist(args.wishlist_source) if args.wishlist_source else None
     source_labels = _source_labels(args)
     config = AuditConfig(
         cleanup_mode=args.cleanup_mode,
@@ -137,6 +142,12 @@ def main() -> None:
         inputs.append(("armor", armor_fields, armor_rows, armor_recommendations))
 
     recommendations = [rec for _, _, _, recs in inputs for rec in recs]
+    wishlist_count = apply_wishlist_matches(
+        [(row, rec) for _, _, rows, recs in inputs for row, rec in zip(rows, recs, strict=True)],
+        wishlist,
+    )
+    if wishlist:
+        print(f"Applied {wishlist_count} wishlist/triage matches")
     duplicate_summary = apply_duplicate_grouping(
         [(row, rec) for _, _, rows, recs in inputs for row, rec in zip(rows, recs, strict=True)],
         config,
@@ -191,6 +202,8 @@ def _source_labels(args: argparse.Namespace) -> list[str]:
         labels.append("destiny.report weapon metadata")
     if args.armor_set_ratings_csv:
         labels.append("armor set rating sheet")
+    if args.wishlist_source:
+        labels.append("wishlist/triage source")
     if args.review_decisions_json:
         labels.append("reviewed decisions JSON")
     return labels
@@ -302,6 +315,13 @@ def _validate_source_path(parser: argparse.ArgumentParser, path: Path, label: st
         parser.error(f"{label} does not exist: {path}")
     if path.suffix.lower() != suffix:
         parser.error(f"{label} must be a {suffix} file: {path}")
+
+
+def _validate_wishlist_path(parser: argparse.ArgumentParser, path: Path) -> None:
+    if not path.exists():
+        parser.error(f"wishlist/triage source does not exist: {path}")
+    if path.suffix.lower() not in {".json", ".csv"}:
+        parser.error(f"wishlist/triage source must be a .json or .csv file: {path}")
 
 
 def _validate_weapon_csv(parser: argparse.ArgumentParser, fields: list[str], rows: list[dict[str, str]]) -> None:

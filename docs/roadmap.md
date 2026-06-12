@@ -4,9 +4,8 @@ This roadmap turns the remaining planned items into buildable milestones. The go
 
 ## Recommended Order
 
-1. Wishlist/triage source ingestion.
-2. Deeper Armor 3.0 archetype/build scoring.
-3. Codex plugin packaging.
+1. Deeper Armor 3.0 archetype/build scoring.
+2. Codex plugin packaging.
 
 ## Completed: Reviewed Decisions To Final CSV
 
@@ -50,17 +49,20 @@ Acceptance criteria:
 - The HTML artifact has a duplicate queue.
 - The auditor never junks every copy in a role group unless strict mode is explicit.
 
-## 3. Wishlist And Triage Source Ingestion
+## Completed: Wishlist And Triage Source Ingestion
 
-Why third: wishlist notes provide the missing "why this roll exists" layer. They help distinguish god rolls from utility rolls, PvP feel rolls, and niche endgame tools.
+Status: implemented.
 
-First useful version:
+Why it mattered: wishlist notes provide the missing "why this roll exists" layer. They help distinguish god rolls from utility rolls, PvP feel rolls, and niche endgame tools.
 
-- Accept a local wishlist/triage JSON or CSV source.
-- Support source metadata: source name, author, date, context, input method, and confidence.
-- Match by weapon hash/name and perk combos.
-- Add `wishlist-match` and `wishlist-partial` signals.
-- Comment with the role, not just "wishlist says keep."
+Implemented:
+
+- Added `--wishlist-source` for local JSON or CSV files.
+- Support source metadata: source name, author, date, context, confidence, role, notes, and recommended combos.
+- Match weapons by hash or normalized name plus perk combos.
+- Add `wishlist-match`, `wishlist-partial`, `wishlist-stale`, and `wishlist-role:*` signals.
+- Exact fresh matches can strengthen weak recommendations into `keep`.
+- Partial or stale matches route to review and explain why.
 
 Acceptance criteria:
 

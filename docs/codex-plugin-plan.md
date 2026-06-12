@@ -112,11 +112,8 @@ Read-only Bungie OAuth may be useful later for convenience, but the current prod
 
 See `docs/roadmap.md` for the current recommended build order. The short version:
 
-1. Reviewed decisions to final CSV.
-2. Duplicate grouping.
-3. Wishlist/triage ingestion.
-4. Armor depth.
-5. Codex plugin packaging.
+1. Armor depth.
+2. Codex plugin packaging.
 
 ### Phase 1: File-Based Prototype
 
@@ -132,12 +129,14 @@ See `docs/roadmap.md` for the current recommended build order. The short version
 - Add interactive filters and decision toggles.
 - Export decision JSON.
 - Regenerate final DIM CSV from reviewed decisions.
+- Status: implemented in the CLI.
 
 ### Phase 3: Cleanup Intelligence
 
 - Add duplicate grouping.
 - Add wishlist/triage source ingestion.
 - Add source confidence and stale-source handling.
+- Status: duplicate grouping and wishlist/triage ingestion are implemented in the CLI; plugin packaging should expose those existing options.
 
 ### Phase 4: Armor Depth
 

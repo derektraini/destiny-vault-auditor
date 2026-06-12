@@ -11,6 +11,7 @@ Works today:
 - DIM weapons and armor CSV parsing.
 - Optional destiny.report weapon JSON input.
 - Optional armor set rating CSV input.
+- Optional local wishlist/triage JSON or CSV input.
 - Weapon roll scoring with keep/junk/refarm/protect buckets.
 - Conservative armor scoring for exotics, locked items, notes, investment, class items, and stat profiles.
 - Light audit config for cleanup posture.
@@ -20,7 +21,6 @@ Works today:
 
 Planned:
 
-- Wishlist/triage source ingestion.
 - Deeper Armor 3.0 archetype/build scoring.
 - Codex plugin packaging.
 
@@ -58,6 +58,7 @@ python3 scripts/destiny-vault-auditor.py \
   --armor-csv tests/fixtures/synthetic_dim_armor.csv \
   --destiny-report-json tests/fixtures/synthetic_destiny_report.json \
   --armor-set-ratings-csv tests/fixtures/synthetic_armor_set_ratings.csv \
+  --wishlist-source tests/fixtures/synthetic_wishlist.json \
   --out-dir outputs/demo
 ```
 
@@ -85,6 +86,25 @@ curl -L "https://docs.google.com/spreadsheets/d/14LnzOhmeXzKaSV3OR35pQJkclg6vLC4
   -o source-cache/armor-set-ratings.csv
 ```
 
+Optional wishlist/triage source:
+
+```json
+{
+  "source_name": "My local triage notes",
+  "entries": [
+    {
+      "name": "Example Weapon",
+      "source_date": "2026-06-01",
+      "role": "PvE utility",
+      "recommended_combos": [["Perk A", "Perk B"]],
+      "notes": "Why this roll matters."
+    }
+  ]
+}
+```
+
+CSV sources can use columns such as `name`, `hash`, `role`, `recommended_combos`, `source_name`, `author`, `source_date`, `confidence`, and `notes`. Separate multiple combos with semicolons and perks inside a combo with `+`.
+
 Run an audit:
 
 ```bash
@@ -93,6 +113,7 @@ python3 scripts/destiny-vault-auditor.py \
   --armor-csv dim-exports/armor.private.csv \
   --destiny-report-json path/to/destiny-report-weapons.json \
   --armor-set-ratings-csv source-cache/armor-set-ratings.csv \
+  --wishlist-source source-cache/wishlist.json \
   --out-dir outputs/my-audit \
   --cleanup-mode clean-slate \
   --locked-behavior review \
@@ -132,6 +153,7 @@ python3 scripts/destiny-vault-auditor.py \
   --armor-csv dim-exports/armor.private.csv \
   --destiny-report-json path/to/destiny-report-weapons.json \
   --armor-set-ratings-csv source-cache/armor-set-ratings.csv \
+  --wishlist-source source-cache/wishlist.json \
   --review-decisions-json path/to/reviewed-decisions.json \
   --out-dir outputs/my-final-audit
 ```
@@ -142,6 +164,7 @@ python3 scripts/destiny-vault-auditor.py \
 - `--armor-csv`: DIM armor CSV export.
 - `--destiny-report-json`: optional destiny.report weapon JSON export.
 - `--armor-set-ratings-csv`: optional armor set bonus rating sheet CSV.
+- `--wishlist-source`: optional local wishlist/triage JSON or CSV source.
 - `--review-decisions-json`: optional edited decisions JSON exported from `vault-review.html`.
 - `--cleanup-mode`: `gentle`, `clean-slate`, `aggressive`.
 - `--high-level`: weapon level above this is protected. Default: `30`.

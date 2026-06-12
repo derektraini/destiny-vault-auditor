@@ -135,6 +135,15 @@ Example source shape:
 
 Wishlist matches should improve the recommendation and comment quality. They should not silently protect a bad or obsolete roll forever.
 
+Current supported input:
+
+- `--wishlist-source path/to/source.json`
+- `--wishlist-source path/to/source.csv`
+
+Supported fields include `name`, `hash`, `role`, `recommended_combos`, `source_name`, `author`, `source_date`, `confidence`, `contexts`, and `notes`.
+
+Exact fresh matches can strengthen a weapon to `keep`. Partial matches and stale matches route to review so the user sees the evidence without treating older community guidance as current truth.
+
 ### Patch Notes
 
 Patch notes should override stale community consensus.

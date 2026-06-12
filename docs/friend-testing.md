@@ -36,6 +36,14 @@ Then add:
 --armor-set-ratings-csv source-cache/armor-set-ratings.csv
 ```
 
+You can also add a local wishlist or triage file:
+
+```bash
+--wishlist-source source-cache/wishlist.json
+```
+
+Wishlist sources are optional. They are most useful when you already have curated roll notes from DIM, a podcast panel, or a trusted friend and want the auditor to explain that context in the HTML review.
+
 ## Review
 
 Open:
@@ -61,6 +69,7 @@ After exporting reviewed decisions, rerun:
 python3 scripts/destiny-vault-auditor.py \
   --weapons-csv dim-exports/weapons.private.csv \
   --armor-csv dim-exports/armor.private.csv \
+  --wishlist-source source-cache/wishlist.json \
   --review-decisions-json path/to/reviewed-decisions.json \
   --out-dir outputs/my-final-audit
 ```
@@ -85,4 +94,5 @@ Importing it sends the auditor's proposed tags/comments back to DIM. It still do
 
 - Armor scoring is conservative.
 - Duplicate grouping keeps a best copy visible and marks weaker copies for review/cleanup.
+- Wishlist matches are evidence, not final authority; stale and partial matches should still be reviewed.
 - Treat all `junk` as review candidates until you trust the model.
