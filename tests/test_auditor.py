@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import json
 import subprocess
 import sys
 import tempfile
@@ -155,6 +156,76 @@ class AuditorTests(unittest.TestCase):
             for name in ["dim-import.csv", "dim-import-weapons.csv", "dim-import-armor.csv"]:
                 with (out_dir / name).open(newline="", encoding="utf-8") as handle:
                     self.assertEqual(csv.DictReader(handle).fieldnames, ["Name", "Hash", "Id", "Tag", "Notes"])
+
+    def test_cli_applies_reviewed_decisions_to_final_dim_csv(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            out_dir = Path(tmp) / "out"
+            review_path = Path(tmp) / "reviewed.json"
+            review_path.write_text(
+                json.dumps(
+                    {
+                        "schema": "destiny-vault-auditor.review.v1",
+                        "recommendations": [
+                            {
+                                "item_id": "item-2",
+                                "tag": "keep",
+                                "comment": "Manual review: keep this rocket for nostalgia.",
+                            },
+                            {
+                                "item_hash": "5001",
+                                "tag": "archive",
+                                "comment": "Manual review: archive this scout.",
+                            },
+                            {
+                                "item_id": "missing-item",
+                                "tag": "junk",
+                                "comment": "This should warn because it is stale.",
+                            },
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "auditor.cli",
+                    "--weapons-csv",
+                    str(FIXTURES / "synthetic_dim_weapons.csv"),
+                    "--armor-csv",
+                    str(FIXTURES / "synthetic_dim_armor.csv"),
+                    "--destiny-report-json",
+                    str(FIXTURES / "synthetic_destiny_report.json"),
+                    "--armor-set-ratings-csv",
+                    str(FIXTURES / "synthetic_armor_set_ratings.csv"),
+                    "--review-decisions-json",
+                    str(review_path),
+                    "--out-dir",
+                    str(out_dir),
+                ],
+                cwd=ROOT,
+                env={"PYTHONPATH": str(SRC)},
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+
+            self.assertIn("Applied 2 reviewed decisions", result.stdout)
+            self.assertIn("skipped stale decision for missing-item", result.stderr)
+            with (out_dir / "dim-import.csv").open(newline="", encoding="utf-8") as handle:
+                rows = {row["Id"]: row for row in csv.DictReader(handle)}
+
+            self.assertEqual(rows["item-2"]["Tag"], "keep")
+            self.assertEqual(rows["item-2"]["Notes"], "Manual review: keep this rocket for nostalgia.")
+            self.assertEqual(rows["item-5"]["Tag"], "archive")
+            self.assertEqual(rows["item-5"]["Notes"], "Manual review: archive this scout.")
+
+            decisions = json.loads((out_dir / "decisions.json").read_text(encoding="utf-8"))
+            item_2 = next(rec for rec in decisions["recommendations"] if rec["item_id"] == "item-2")
+            self.assertIn("reviewed-decision", item_2["signals"])
+            self.assertIn("reviewed decisions JSON", decisions["sources"])
 
     def test_locked_behavior_can_protect_or_review(self) -> None:
         _, rows = read_csv(FIXTURES / "synthetic_dim_weapons.csv")

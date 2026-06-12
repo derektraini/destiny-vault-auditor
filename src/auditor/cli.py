@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import argparse
+import json
 import subprocess
+import sys
 from pathlib import Path
 
 from .armor_sets import load_armor_set_ratings
@@ -46,6 +48,7 @@ def main() -> None:
     parser.add_argument("--armor-csv", type=Path, help="DIM armor CSV export.")
     parser.add_argument("--destiny-report-json", type=Path, help="destiny.report weapon JSON export.")
     parser.add_argument("--armor-set-ratings-csv", type=Path, help="Armor set rating sheet CSV export.")
+    parser.add_argument("--review-decisions-json", type=Path, help="Reviewed decisions JSON exported from vault-review.html.")
     parser.add_argument("--out-dir", type=Path, default=Path("outputs"), help="Output directory.")
     parser.add_argument(
         "--cleanup-mode",
@@ -99,6 +102,8 @@ def main() -> None:
         _validate_source_path(parser, args.destiny_report_json, "destiny.report JSON", ".json")
     if args.armor_set_ratings_csv:
         _validate_source_path(parser, args.armor_set_ratings_csv, "armor set ratings CSV", ".csv")
+    if args.review_decisions_json:
+        _validate_source_path(parser, args.review_decisions_json, "review decisions JSON", ".json")
 
     destiny_report = load_destiny_report(args.destiny_report_json) if args.destiny_report_json else None
     armor_sets = load_armor_set_ratings(args.armor_set_ratings_csv) if args.armor_set_ratings_csv else None
@@ -131,6 +136,11 @@ def main() -> None:
         inputs.append(("armor", armor_fields, armor_rows, armor_recommendations))
 
     recommendations = [rec for _, _, _, recs in inputs for rec in recs]
+    if args.review_decisions_json:
+        applied_count, warnings = _apply_review_decisions(args.review_decisions_json, recommendations, parser)
+        print(f"Applied {applied_count} reviewed decisions")
+        for warning in warnings:
+            print(f"WARNING: {warning}", file=sys.stderr)
 
     out_dir = args.out_dir
     combined_rows: list[dict[str, str]] = []
@@ -176,7 +186,71 @@ def _source_labels(args: argparse.Namespace) -> list[str]:
         labels.append("destiny.report weapon metadata")
     if args.armor_set_ratings_csv:
         labels.append("armor set rating sheet")
+    if args.review_decisions_json:
+        labels.append("reviewed decisions JSON")
     return labels
+
+
+def _apply_review_decisions(
+    path: Path,
+    recommendations: list[Recommendation],
+    parser: argparse.ArgumentParser,
+) -> tuple[int, list[str]]:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as error:
+        parser.error(f"review decisions JSON is invalid: {error}")
+
+    decisions = payload.get("recommendations")
+    if not isinstance(decisions, list):
+        parser.error("review decisions JSON must contain a recommendations list")
+
+    by_id = {rec.item_id: rec for rec in recommendations if rec.item_id}
+    by_hash: dict[str, Recommendation | None] = {}
+    for rec in recommendations:
+        if not rec.item_hash:
+            continue
+        if rec.item_hash in by_hash:
+            by_hash[rec.item_hash] = None
+        else:
+            by_hash[rec.item_hash] = rec
+
+    applied = 0
+    warnings: list[str] = []
+    valid_tags = {"favorite", "keep", "archive", "junk"}
+
+    for decision in decisions:
+        if not isinstance(decision, dict):
+            warnings.append("skipped malformed decision entry")
+            continue
+        item_id = str(decision.get("item_id") or "")
+        item_hash = str(decision.get("item_hash") or "")
+        rec = by_id.get(item_id)
+        if rec is None and item_hash:
+            rec = by_hash.get(item_hash)
+            if rec is None and item_hash in by_hash:
+                warnings.append(f"skipped decision for hash {item_hash}: hash matches multiple current items")
+                continue
+
+        label = item_id or item_hash or "<missing id>"
+        if rec is None:
+            warnings.append(f"skipped stale decision for {label}: item is not in the current export")
+            continue
+
+        tag = str(decision.get("tag") or rec.tag).strip()
+        if tag not in valid_tags:
+            warnings.append(f"skipped invalid tag for {label}: {tag}")
+            continue
+
+        comment = str(decision.get("comment") or "").strip()
+        if comment:
+            rec.comment_override = comment
+        rec.tag = tag
+        if "reviewed-decision" not in rec.signals:
+            rec.signals.append("reviewed-decision")
+        applied += 1
+
+    return applied, warnings
 
 
 def _validate_input_path(parser: argparse.ArgumentParser, path: Path, allow_unignored: bool, label: str) -> None:

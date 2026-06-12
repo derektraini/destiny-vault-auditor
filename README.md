@@ -14,11 +14,11 @@ Works today:
 - Weapon roll scoring with keep/junk/refarm/protect buckets.
 - Conservative armor scoring for exotics, locked items, notes, investment, class items, and stat profiles.
 - Light audit config for cleanup posture.
+- Editable HTML review decisions can be imported back into a final DIM CSV.
 - Output files: `dim-import.csv`, `audit-summary.md`, `decisions.json`, `vault-review.html`.
 
 Planned:
 
-- Import reviewed HTML decisions back into final CSV generation.
 - Duplicate grouping.
 - Wishlist/triage source ingestion.
 - Deeper Armor 3.0 archetype/build scoring.
@@ -118,9 +118,23 @@ Review `outputs/my-audit/vault-review.html` before importing `outputs/my-audit/d
 2. Add optional sources when available: destiny.report weapon metadata and the armor set rating sheet.
 3. Run in `clean-slate` mode with `--locked-behavior review`.
 4. In the HTML artifact, start with `junk`, `replace-now`, and `needs-review`.
-5. Import the DIM CSV only after the recommendations make sense.
+5. Edit tags/comments in the HTML artifact and export `decisions.json`.
+6. Rerun the audit with `--review-decisions-json` to create the final DIM CSV.
+7. Import the final DIM CSV only after the recommendations make sense.
 
 The tool ranks and categorizes gear using vault facts, current-ish source metadata, perk/set heuristics, and personal-intent signals like locks, notes, crafted state, and weapon level.
+
+Second pass after HTML review:
+
+```bash
+python3 scripts/destiny-vault-auditor.py \
+  --weapons-csv dim-exports/weapons.private.csv \
+  --armor-csv dim-exports/armor.private.csv \
+  --destiny-report-json path/to/destiny-report-weapons.json \
+  --armor-set-ratings-csv source-cache/armor-set-ratings.csv \
+  --review-decisions-json path/to/reviewed-decisions.json \
+  --out-dir outputs/my-final-audit
+```
 
 ## Config
 
@@ -128,6 +142,7 @@ The tool ranks and categorizes gear using vault facts, current-ish source metada
 - `--armor-csv`: DIM armor CSV export.
 - `--destiny-report-json`: optional destiny.report weapon JSON export.
 - `--armor-set-ratings-csv`: optional armor set bonus rating sheet CSV.
+- `--review-decisions-json`: optional edited decisions JSON exported from `vault-review.html`.
 - `--cleanup-mode`: `gentle`, `clean-slate`, `aggressive`.
 - `--high-level`: weapon level above this is protected. Default: `30`.
 - `--invested-level`: weapon level above this gets investment context. Default: `20`.

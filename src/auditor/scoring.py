@@ -90,6 +90,7 @@ class AuditConfig:
 @dataclass
 class Recommendation:
     item_id: str
+    item_hash: str
     name: str
     kind: str
     bucket: str
@@ -100,9 +101,12 @@ class Recommendation:
     current_tag: str = ""
     rank: str = ""
     signals: list[str] = field(default_factory=list)
+    comment_override: str = ""
 
     @property
     def comment(self) -> str:
+        if self.comment_override:
+            return self.comment_override
         source_text = f" Sources: {', '.join(self.sources)}." if self.sources else ""
         return f"DVA: {self.bucket.upper()} - {self.reason}.{source_text}"
 
@@ -114,6 +118,7 @@ def recommend(
 ) -> Recommendation:
     config = config or AuditConfig()
     row_id = row.get("Id", "")
+    row_hash = row.get("Hash", "")
     name = row.get("Name", "")
     current_tag = row.get("Tag") or ""
     level = int_field(row, "Crafted Level")
@@ -130,6 +135,7 @@ def recommend(
     if level > config.high_level_threshold:
         return _rec(
             item_id=row_id,
+            item_hash=row_hash,
             name=name,
             kind="weapon",
             bucket="protect",
@@ -145,11 +151,12 @@ def recommend(
         reason = "crafted/reshapeable weapon preserved"
         if level > config.invested_level_threshold:
             reason = f"crafted weapon level {level}; preserve and move on unless deliberately refarming"
-        return _rec(row_id, name, "weapon", "protect", _preserve_tag(current_tag), "high", reason, sources, current_tag, signals=signals)
+        return _rec(row_id, row_hash, name, "weapon", "protect", _preserve_tag(current_tag), "high", reason, sources, current_tag, signals=signals)
 
     if rarity == "Exotic":
         return _rec(
             row_id,
+            row_hash,
             name,
             "weapon",
             "protect",
@@ -164,6 +171,7 @@ def recommend(
     if _is_locked(row) and config.locked_behavior == "protect":
         return _rec(
             row_id,
+            row_hash,
             name,
             "weapon",
             "protect",
@@ -191,6 +199,7 @@ def recommend(
             reason = f"{combo_reason}; keep until a newer/updated version is earned. Best path: {replacement}"
         return _rec(
             row_id,
+            row_hash,
             name,
             "weapon",
             bucket,
@@ -203,29 +212,29 @@ def recommend(
         )
 
     if combo_reason:
-        return _rec(row_id, name, "weapon", "keep", "keep", "high", combo_reason, sources, current_tag, signals=signals)
+        return _rec(row_id, row_hash, name, "weapon", "keep", "keep", "high", combo_reason, sources, current_tag, signals=signals)
 
     if "PVP" in notes.upper() and perks & HIGH_VALUE_TERMS:
         reason = "personal PvP note plus useful perk structure; preserve for feel-based testing"
         if replacement:
             reason += f"; newer/updated version exists. Best path: {replacement}"
-            return _rec(row_id, name, "weapon", "keep-refarm", "keep", "medium", reason, sources, current_tag, signals=signals)
+            return _rec(row_id, row_hash, name, "weapon", "keep-refarm", "keep", "medium", reason, sources, current_tag, signals=signals)
         tag = "keep" if config.pvp_caution != "strict" else "archive"
-        return _rec(row_id, name, "weapon", "needs-review", tag, "medium", reason, sources, current_tag, signals=signals)
+        return _rec(row_id, row_hash, name, "weapon", "needs-review", tag, "medium", reason, sources, current_tag, signals=signals)
 
     high_value_hits = sorted(perks & HIGH_VALUE_TERMS)
     if tier >= 5 and len(high_value_hits) >= 2:
         reason = f"Tier 5 roll with multiple useful terms ({', '.join(high_value_hits[:2])})"
         if replacement:
             reason += f"; keep until newer/updated replacement. Best path: {replacement}"
-            return _rec(row_id, name, "weapon", "keep-refarm", "keep", "medium", reason, sources, current_tag, signals=signals)
-        return _rec(row_id, name, "weapon", "keep", "keep", "medium", reason, sources, current_tag, signals=signals)
+            return _rec(row_id, row_hash, name, "weapon", "keep-refarm", "keep", "medium", reason, sources, current_tag, signals=signals)
+        return _rec(row_id, row_hash, name, "weapon", "keep", "keep", "medium", reason, sources, current_tag, signals=signals)
 
     if _is_locked(row) and config.locked_behavior == "review":
         reason = "locked in DIM but no standout current role found; confirm before changing"
         if replacement:
             reason += f". Newer/updated version exists. Best path: {replacement}"
-        return _rec(row_id, name, "weapon", "needs-review", _preserve_tag(current_tag), "low", reason, sources, current_tag, signals=signals)
+        return _rec(row_id, row_hash, name, "weapon", "needs-review", _preserve_tag(current_tag), "low", reason, sources, current_tag, signals=signals)
 
     if replacement:
         tag = "junk"
@@ -240,6 +249,7 @@ def recommend(
             reason += f"; power {power} is below low-power review threshold"
         return _rec(
             row_id,
+            row_hash,
             name,
             "weapon",
             bucket,
@@ -254,6 +264,7 @@ def recommend(
     if tier >= 5 and high_value_hits:
         return _rec(
             row_id,
+            row_hash,
             name,
             "weapon",
             "needs-review",
@@ -268,6 +279,7 @@ def recommend(
     if config.cleanup_mode == "gentle" and current_tag in {"favorite", "keep"}:
         return _rec(
             row_id,
+            row_hash,
             name,
             "weapon",
             "needs-review",
@@ -284,6 +296,7 @@ def recommend(
         reason += f"; power {power} is below low-power review threshold"
     return _rec(
         row_id,
+        row_hash,
         name,
         "weapon",
         "junk",
@@ -303,6 +316,7 @@ def recommend_armor(
 ) -> Recommendation:
     config = config or AuditConfig()
     row_id = row.get("Id", "")
+    row_hash = row.get("Hash", "")
     name = row.get("Name", "")
     current_tag = row.get("Tag") or ""
     rarity = row.get("Rarity", "")
@@ -330,6 +344,7 @@ def recommend_armor(
     if rarity == "Exotic":
         return _rec(
             row_id,
+            row_hash,
             name,
             "armor",
             "protect",
@@ -344,6 +359,7 @@ def recommend_armor(
     if _is_locked(row) and config.locked_behavior == "protect":
         return _rec(
             row_id,
+            row_hash,
             name,
             "armor",
             "protect",
@@ -358,6 +374,7 @@ def recommend_armor(
     if notes:
         return _rec(
             row_id,
+            row_hash,
             name,
             "armor",
             "needs-review",
@@ -372,6 +389,7 @@ def recommend_armor(
     if energy_capacity >= 10 or masterwork_tier >= 10:
         return _rec(
             row_id,
+            row_hash,
             name,
             "armor",
             "protect",
@@ -386,6 +404,7 @@ def recommend_armor(
     if armor_type.lower() == "class item":
         return _rec(
             row_id,
+            row_hash,
             name,
             "armor",
             "needs-review",
@@ -401,13 +420,13 @@ def recommend_armor(
         reason = f"high-rated {set_rating.label}"
         if total:
             reason += f"; {total} total"
-        return _rec(row_id, name, "armor", "keep", "keep", "medium", reason, sources, current_tag, signals=signals)
+        return _rec(row_id, row_hash, name, "armor", "keep", "keep", "medium", reason, sources, current_tag, signals=signals)
 
     if set_rating and rating_value(set_rating.best_rating) >= rating_value("B+"):
         reason = f"useful {set_rating.label}; review stat fit"
         if total:
             reason += f"; {total} total"
-        return _rec(row_id, name, "armor", "needs-review", "keep", "low", reason, sources, current_tag, signals=signals)
+        return _rec(row_id, row_hash, name, "armor", "needs-review", "keep", "low", reason, sources, current_tag, signals=signals)
 
     if total >= 66 or max_stat >= 27 or (len(two_spikes) == 2 and two_spikes[0] >= 23 and two_spikes[1] >= 20):
         reason = f"strong armor stat profile"
@@ -415,11 +434,12 @@ def recommend_armor(
             reason += f" with {total} total"
         if max_stat:
             reason += f" and {max_stat} peak stat"
-        return _rec(row_id, name, "armor", "keep", "keep", "medium", reason, sources, current_tag, signals=signals)
+        return _rec(row_id, row_hash, name, "armor", "keep", "keep", "medium", reason, sources, current_tag, signals=signals)
 
     if tier >= 5:
         return _rec(
             row_id,
+            row_hash,
             name,
             "armor",
             "needs-review",
@@ -434,6 +454,7 @@ def recommend_armor(
     if _is_locked(row) and config.locked_behavior == "review":
         return _rec(
             row_id,
+            row_hash,
             name,
             "armor",
             "needs-review",
@@ -448,6 +469,7 @@ def recommend_armor(
     if config.cleanup_mode == "gentle" and current_tag in {"favorite", "keep"}:
         return _rec(
             row_id,
+            row_hash,
             name,
             "armor",
             "needs-review",
@@ -464,11 +486,12 @@ def recommend_armor(
         reason += f"; {total} total"
     if power and config.low_power_below and power <= config.low_power_below:
         reason += f"; power {power} is below low-power review threshold"
-    return _rec(row_id, name, "armor", "junk", "junk", "medium", reason, sources, current_tag, signals=signals)
+    return _rec(row_id, row_hash, name, "armor", "junk", "junk", "medium", reason, sources, current_tag, signals=signals)
 
 
 def _rec(
     item_id: str,
+    item_hash: str,
     name: str,
     kind: str,
     bucket: str,
@@ -481,6 +504,7 @@ def _rec(
 ) -> Recommendation:
     return Recommendation(
         item_id=item_id,
+        item_hash=item_hash,
         name=name,
         kind=kind,
         bucket=bucket,

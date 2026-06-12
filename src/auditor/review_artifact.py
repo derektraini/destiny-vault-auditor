@@ -90,7 +90,7 @@ def write_html(
     bucket_options = sorted({rec.bucket for rec in recommendations})
     kind_options = sorted({rec.kind for rec in recommendations})
     rank_options = sorted({rec.rank for rec in recommendations if rec.rank})
-    tag_options = sorted({rec.tag for rec in recommendations})
+    tag_options = sorted({rec.tag for rec in recommendations} | {"archive", "favorite", "junk", "keep"})
     html_text = f"""<!doctype html>
 <html lang="en">
 <head>
@@ -124,6 +124,8 @@ def write_html(
     .muted {{ color: #a79b8c; }}
     .signals {{ margin-top: 5px; display: flex; flex-wrap: wrap; gap: 5px; }}
     .signal {{ border: 1px solid #473d31; border-radius: 999px; padding: 1px 6px; font-size: 11px; color: #bdae9b; }}
+    .tag-edit {{ min-width: 96px; }}
+    .comment-edit {{ margin-top: 8px; width: min(100%, 760px); min-height: 62px; resize: vertical; font: inherit; line-height: 1.35; background: #14110d; color: #f1eee8; border: 1px solid #3e3529; border-radius: 6px; padding: 8px; }}
   </style>
 </head>
 <body>
@@ -152,6 +154,7 @@ def write_html(
     const recommendations = {payload};
     const config = {config_payload};
     const sources = {sources_payload};
+    const tagOptions = {json.dumps(tag_options)};
     const rowsEl = document.getElementById('rows');
     const searchEl = document.getElementById('search');
     const kindEl = document.getElementById('kind');
@@ -196,16 +199,33 @@ def write_html(
     }}
 
     function render() {{
-      const visible = recommendations.filter(matches);
-      renderStats(visible);
-      rowsEl.innerHTML = visible.map(rec => `
+      const visible = recommendations
+        .map((rec, index) => ({{rec, index}}))
+        .filter(({{rec}}) => matches(rec));
+      renderStats(visible.map(({{rec}}) => rec));
+      rowsEl.innerHTML = visible.map(({{rec, index}}) => `
         <tr data-bucket="${{rec.bucket}}">
           <td><strong>${{escapeHtml(rec.name)}}</strong><div class="muted">${{escapeHtml(rec.kind)}} · ${{escapeHtml(rec.item_id)}}</div></td>
           <td><span class="pill">${{escapeHtml(rec.bucket)}}</span><div class="muted">${{escapeHtml(rec.rank)}}</div></td>
-          <td>${{escapeHtml(rec.tag)}}</td>
+          <td><select class="tag-edit" data-index="${{index}}">${{tagOptions.map(tag => `<option value="${{escapeHtml(tag)}}" ${{tag === rec.tag ? 'selected' : ''}}>${{escapeHtml(tag)}}</option>`).join('')}}</select></td>
           <td>${{escapeHtml(rec.confidence)}}</td>
-          <td class="reason">${{escapeHtml(rec.reason)}}<div class="muted">${{escapeHtml((rec.sources || []).join(', '))}}</div><div class="signals">${{(rec.signals || []).map(signal => `<span class="signal">${{escapeHtml(signal)}}</span>`).join('')}}</div></td>
+          <td class="reason">${{escapeHtml(rec.reason)}}<div class="muted">${{escapeHtml((rec.sources || []).join(', '))}}</div><div class="signals">${{(rec.signals || []).map(signal => `<span class="signal">${{escapeHtml(signal)}}</span>`).join('')}}</div><textarea class="comment-edit" data-index="${{index}}">${{escapeHtml(rec.comment)}}</textarea></td>
         </tr>`).join('');
+      for (const select of document.querySelectorAll('.tag-edit')) {{
+        select.addEventListener('change', event => {{
+          const rec = recommendations[Number(event.currentTarget.dataset.index)];
+          rec.tag = event.currentTarget.value;
+          if (!rec.signals.includes('reviewed-decision')) rec.signals.push('reviewed-decision');
+        }});
+      }}
+      for (const textarea of document.querySelectorAll('.comment-edit')) {{
+        textarea.addEventListener('input', event => {{
+          const rec = recommendations[Number(event.currentTarget.dataset.index)];
+          rec.comment = event.currentTarget.value;
+          rec.comment_override = event.currentTarget.value;
+          if (!rec.signals.includes('reviewed-decision')) rec.signals.push('reviewed-decision');
+        }});
+      }}
     }}
 
     function escapeHtml(value) {{

@@ -50,12 +50,26 @@ Start with:
 - `replace-now`
 - `needs-review`
 
+You can edit each row's tag and comment in the HTML artifact, then use the export button to save reviewed decisions JSON.
+
+## Generate Final CSV From Review
+
+After exporting reviewed decisions, rerun:
+
+```bash
+python3 scripts/destiny-vault-auditor.py \
+  --weapons-csv dim-exports/weapons.private.csv \
+  --armor-csv dim-exports/armor.private.csv \
+  --review-decisions-json path/to/reviewed-decisions.json \
+  --out-dir outputs/my-final-audit
+```
+
 ## Import Back Into DIM
 
 Import this file into DIM:
 
 ```text
-outputs/my-audit/dim-import.csv
+outputs/my-final-audit/dim-import.csv
 ```
 
 It only contains DIM metadata columns:
@@ -70,5 +84,4 @@ Importing it sends the auditor's proposed tags/comments back to DIM. It still do
 
 - Armor scoring is conservative.
 - Duplicate grouping is not fully built yet.
-- Reviewed HTML decisions are not consumed back into a second final CSV yet.
 - Treat all `junk` as review candidates until you trust the model.

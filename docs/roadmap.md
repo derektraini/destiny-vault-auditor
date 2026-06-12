@@ -4,24 +4,25 @@ This roadmap turns the remaining planned items into buildable milestones. The go
 
 ## Recommended Order
 
-1. Import reviewed HTML decisions back into final CSV generation.
-2. Duplicate grouping.
-3. Wishlist/triage source ingestion.
-4. Deeper Armor 3.0 archetype/build scoring.
-5. Codex plugin packaging.
+1. Duplicate grouping.
+2. Wishlist/triage source ingestion.
+3. Deeper Armor 3.0 archetype/build scoring.
+4. Codex plugin packaging.
 
-## 1. Reviewed Decisions To Final CSV
+## Completed: Reviewed Decisions To Final CSV
 
-Why first: this closes the loop between review and DIM import. Right now the generated HTML can export decisions, but the CLI does not consume edited decisions to regenerate the final `dim-import.csv`.
+Status: implemented.
 
-First useful version:
+Why it mattered: this closes the loop between review and DIM import. The generated HTML can export edited decisions, and the CLI can now consume those decisions to regenerate the final `dim-import.csv`.
 
-- Add `--review-decisions-json`.
+Implemented:
+
+- Added `--review-decisions-json`.
 - Read edited decisions from the HTML artifact export.
 - Match decisions by `Id`, falling back to `Hash` only when needed.
 - Regenerate `dim-import.csv` from approved/edited decisions.
 - Preserve original notes while replacing old `DVA:` audit comments.
-- Include a summary of changed user overrides.
+- Warn on stale or ambiguous decisions.
 
 Acceptance criteria:
 
