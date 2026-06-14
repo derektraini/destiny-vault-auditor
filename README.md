@@ -8,6 +8,9 @@ It reads DIM weapon/armor exports, scores gear with source-backed rules, and gen
 
 Works today:
 
+- Local browser wizard from `python3 scripts/destiny-vault-auditor.py start`.
+- Drag/drop or file picker upload for DIM weapons and armor CSVs.
+- In-browser review queues, tag/note editing, approval marking, and final DIM import CSV export.
 - DIM weapons and armor CSV parsing.
 - Optional destiny.report weapon JSON input.
 - Optional armor set rating CSV input.
@@ -51,36 +54,27 @@ python3 -m unittest discover -s tests
 ## Friend Quick Start
 
 1. Export weapons and armor CSVs from DIM.
-2. Save them under `dim-exports/` as `weapons.private.csv` and `armor.private.csv`.
-3. Run a first audit:
+2. Launch the local wizard:
 
 ```bash
-python3 scripts/destiny-vault-auditor.py \
-  --weapons-csv dim-exports/weapons.private.csv \
-  --armor-csv dim-exports/armor.private.csv \
-  --out-dir outputs/my-audit \
-  --cleanup-mode clean-slate \
-  --locked-behavior review
+python3 scripts/destiny-vault-auditor.py start
 ```
 
-4. Open `outputs/my-audit/vault-review.html`, edit any tags/comments that need human judgment, and export reviewed decisions JSON.
-5. Run a final audit using that reviewed decisions file:
+3. Drop or choose the DIM CSV exports in the browser.
+4. Review and edit proposed tags/comments.
+5. Export `dim-import.csv` from the browser and import it into DIM manually.
 
-```bash
-python3 scripts/destiny-vault-auditor.py \
-  --weapons-csv dim-exports/weapons.private.csv \
-  --armor-csv dim-exports/armor.private.csv \
-  --review-decisions-json path/to/reviewed-decisions.json \
-  --out-dir outputs/my-final-audit
-```
-
-6. Import `outputs/my-final-audit/dim-import.csv` into DIM manually.
-
-The import CSV only updates DIM metadata columns: `Name`, `Hash`, `Id`, `Tag`, and `Notes`. It does not dismantle or move anything.
+The wizard stays local, uses cached files under `source-cache/` when available, and only exports DIM metadata columns: `Name`, `Hash`, `Id`, `Tag`, and `Notes`. It does not dismantle, move, lock, unlock, or write to DIM Sync.
 
 ## Quick Start
 
-Run the synthetic fixture audit:
+Launch the local wizard:
+
+```bash
+python3 scripts/destiny-vault-auditor.py start
+```
+
+Run the synthetic fixture audit from the advanced CLI:
 
 ```bash
 python3 scripts/destiny-vault-auditor.py \
@@ -100,10 +94,34 @@ open outputs/demo/vault-review.html
 
 ## Real DIM Export
 
-Export weapons and armor from DIM and put the CSVs in an ignored/private path such as `dim-exports/`.
+Export weapons and armor from DIM, then run:
+
+```bash
+python3 scripts/destiny-vault-auditor.py start
+```
+
+The browser wizard detects weapons vs armor automatically, applies the same audit engine as the CLI, and exports the final DIM import CSV after review.
+
+Advanced CLI runs can still read CSVs from an ignored/private path such as `dim-exports/`.
 
 ```bash
 mkdir -p dim-exports
+```
+
+Name the files `weapons.private.csv` and `armor.private.csv` for the easiest advanced CLI path. The CLI will auto-detect those files:
+
+```bash
+python3 scripts/destiny-vault-auditor.py \
+  --out-dir outputs/my-audit \
+  --cleanup-mode clean-slate \
+  --locked-behavior review
+```
+
+You can also drag CSV files into the command instead of naming flags manually:
+
+```bash
+python3 scripts/destiny-vault-auditor.py ~/Downloads/dim-weapons.csv ~/Downloads/dim-armor.csv \
+  --out-dir outputs/my-audit
 ```
 
 The CLI refuses unignored CSV inputs inside the repo by default. Files under `dim-exports/` and `*.private.csv` are ignored by Git.
@@ -135,15 +153,15 @@ Optional wishlist/triage source:
 
 CSV sources can use columns such as `name`, `hash`, `role`, `recommended_combos`, `source_name`, `author`, `source_date`, `confidence`, and `notes`. Separate multiple combos with semicolons and perks inside a combo with `+`.
 
-Run an audit:
+Optional destiny.report source:
+
+`--destiny-report-json` expects a JSON file that already exists on disk. If you do not have one, leave that flag out; the auditor still runs from DIM exports.
+
+Run an audit with only the optional files you actually have:
 
 ```bash
 python3 scripts/destiny-vault-auditor.py \
-  --weapons-csv dim-exports/weapons.private.csv \
-  --armor-csv dim-exports/armor.private.csv \
-  --destiny-report-json path/to/destiny-report-weapons.json \
   --armor-set-ratings-csv source-cache/armor-set-ratings.csv \
-  --wishlist-source source-cache/wishlist.json \
   --out-dir outputs/my-audit \
   --cleanup-mode clean-slate \
   --locked-behavior review \
@@ -152,39 +170,33 @@ python3 scripts/destiny-vault-auditor.py \
   --pvp-caution balanced
 ```
 
-Without destiny.report data:
+Without optional source files:
 
 ```bash
 python3 scripts/destiny-vault-auditor.py \
-  --weapons-csv dim-exports/weapons.private.csv \
-  --armor-csv dim-exports/armor.private.csv \
   --out-dir outputs/my-audit
 ```
 
-Review `outputs/my-audit/vault-review.html` before importing any CSV into DIM. If you edit tags or comments in the HTML artifact, rerun with `--review-decisions-json` and import the second-pass `outputs/my-final-audit/dim-import.csv`.
+Review `outputs/my-audit/vault-review.html` before importing any CSV into DIM. If you edit tags or comments in the standalone HTML artifact, rerun with `--review-decisions-json` and import the second-pass `outputs/my-final-audit/dim-import.csv`. The `start` wizard does this second pass internally when you export the DIM CSV.
 
 ## Returning Player Flow
 
 1. Export both weapons and armor from DIM.
-2. Add optional sources when available: destiny.report weapon metadata, the armor set rating sheet, and trusted local wishlist/triage notes.
-3. Run in `clean-slate` mode with `--locked-behavior review`.
-4. In the HTML artifact, start with `junk`, `replace-now`, and `needs-review`.
-5. Edit tags/comments in the HTML artifact and export `decisions.json`.
-6. Rerun the audit with the same input/source files plus `--review-decisions-json` to create the final DIM CSV.
+2. Run `python3 scripts/destiny-vault-auditor.py start`.
+3. Drop the DIM CSVs into the browser.
+4. Start review with `junk`, `replace-now`, `needs-review`, and duplicate groups.
+5. Edit tags/comments in the browser.
+6. Export the final DIM CSV from the browser.
 7. Import the final DIM CSV only after the recommendations make sense.
 
 The tool ranks and categorizes gear using vault facts, current-ish source metadata, perk/set heuristics, and personal-intent signals like locks, notes, crafted state, and weapon level.
 
-Second pass after HTML review:
+Advanced second pass after standalone HTML review:
 
 ```bash
 python3 scripts/destiny-vault-auditor.py \
-  --weapons-csv dim-exports/weapons.private.csv \
-  --armor-csv dim-exports/armor.private.csv \
-  --destiny-report-json path/to/destiny-report-weapons.json \
   --armor-set-ratings-csv source-cache/armor-set-ratings.csv \
-  --wishlist-source source-cache/wishlist.json \
-  --review-decisions-json path/to/reviewed-decisions.json \
+  --review-decisions-json ~/Downloads/decisions.json \
   --out-dir outputs/my-final-audit
 ```
 

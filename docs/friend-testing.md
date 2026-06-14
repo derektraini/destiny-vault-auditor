@@ -14,12 +14,16 @@ Save both under `dim-exports/` or name them `*.private.csv`.
 ## Run
 
 ```bash
-python3 scripts/destiny-vault-auditor.py \
-  --weapons-csv dim-exports/weapons.private.csv \
-  --armor-csv dim-exports/armor.private.csv \
-  --out-dir outputs/my-audit \
-  --cleanup-mode clean-slate \
-  --locked-behavior review
+python3 scripts/destiny-vault-auditor.py start
+```
+
+Drop or choose the DIM CSV exports in the browser. The wizard detects weapons and armor automatically.
+
+The advanced CLI still works if you want repeatable automation:
+
+```bash
+python3 scripts/destiny-vault-auditor.py ~/Downloads/dim-weapons.csv ~/Downloads/dim-armor.csv \
+  --out-dir outputs/my-audit
 ```
 
 Optional sources:
@@ -30,7 +34,7 @@ curl -L "https://docs.google.com/spreadsheets/d/14LnzOhmeXzKaSV3OR35pQJkclg6vLC4
   -o source-cache/armor-set-ratings.csv
 ```
 
-Then add:
+The wizard uses the cached armor set sheet automatically when it exists. For advanced CLI runs, add:
 
 ```bash
 --armor-set-ratings-csv source-cache/armor-set-ratings.csv
@@ -46,43 +50,34 @@ Wishlist sources are optional. They are most useful when you already have curate
 
 ## Review
 
-Open:
-
-```bash
-open outputs/my-audit/vault-review.html
-```
-
 Start with:
 
 - `junk`
 - `replace-now`
 - `needs-review`
-- the Duplicate Queue near the top of the HTML artifact
+- duplicate groups
 
-You can edit each row's tag and comment in the HTML artifact, then use the export button to save reviewed decisions JSON.
+You can edit each row's tag and comment in the browser, then export the final DIM import CSV directly.
 
-## Generate Final CSV From Review
+## Advanced: Generate Final CSV From Review
 
-After exporting reviewed decisions, rerun:
+If you used the standalone HTML artifact instead of the wizard, export reviewed decisions and rerun:
 
 ```bash
 python3 scripts/destiny-vault-auditor.py \
-  --weapons-csv dim-exports/weapons.private.csv \
-  --armor-csv dim-exports/armor.private.csv \
   --armor-set-ratings-csv source-cache/armor-set-ratings.csv \
-  --wishlist-source source-cache/wishlist.json \
-  --review-decisions-json path/to/reviewed-decisions.json \
+  --review-decisions-json ~/Downloads/decisions.json \
   --out-dir outputs/my-final-audit
 ```
 
-Use the same optional source files on the final pass that you used on the first pass. Omit any optional source flag if you did not use that file.
+Use the same optional source files on the final pass that you used on the first pass. Omit any optional source flag if you did not use that file. The wizard handles this internally.
 
 ## Import Back Into DIM
 
 Import this file into DIM:
 
 ```text
-outputs/my-final-audit/dim-import.csv
+dim-import.csv
 ```
 
 It only contains DIM metadata columns:

@@ -78,6 +78,7 @@ class AuditConfig:
     duplicate_pruning: str = "balanced"
     old_vs_new: str = "balanced"
     pvp_caution: str = "balanced"
+    notes_behavior: str = "respect"
     low_power_below: int = 0
 
     @property
@@ -90,8 +91,13 @@ class AuditConfig:
             "duplicate_pruning": self.duplicate_pruning,
             "old_vs_new": self.old_vs_new,
             "pvp_caution": self.pvp_caution,
+            "notes_behavior": self.notes_behavior,
             "low_power_below": self.low_power_below,
         }
+
+    @property
+    def respect_notes(self) -> bool:
+        return self.notes_behavior != "ignore"
 
 
 @dataclass
@@ -139,7 +145,7 @@ def recommend(
     power = int_field(row, "Power")
     perks = set(perk_names(row))
     rarity = row.get("Rarity", "")
-    notes = row.get("Notes") or ""
+    notes = (row.get("Notes") or "") if config.respect_notes else ""
 
     sources = ["DIM CSV"]
     signals = _intent_signals(row, config)
@@ -333,7 +339,7 @@ def recommend_armor(
     current_tag = row.get("Tag") or ""
     rarity = row.get("Rarity", "")
     armor_type = row.get("Type", "armor")
-    notes = row.get("Notes") or ""
+    notes = (row.get("Notes") or "") if config.respect_notes else ""
     tier = int_field(row, "Tier")
     power = int_field(row, "Power")
     total = _armor_total(row)
@@ -381,6 +387,27 @@ def recommend_armor(
             _preserve_tag(current_tag),
             "medium",
             "locked armor protected by audit configuration",
+            sources,
+            current_tag,
+            signals=signals,
+        )
+
+    if notes and _has_legacy_keep_intent(current_tag) and strong_role_fit(armor_profile):
+        reason = "preserved legacy armor note with strong Armor 3.0 stat fit"
+        if armor_context:
+            reason += f"; {armor_context}"
+        if total:
+            reason += f"; {total} total"
+        signals.append("returning-guardian:auto-preserve-note")
+        return _rec(
+            row_id,
+            row_hash,
+            name,
+            "armor",
+            "protect",
+            _preserve_tag(current_tag),
+            "medium",
+            reason,
             sources,
             current_tag,
             signals=signals,
@@ -519,7 +546,11 @@ def recommend_armor(
             signals=signals,
         )
 
-    reason = "no exotic, lock, note, investment, Tier 5, or strong stat profile found"
+    missing = ["exotic", "lock"]
+    if config.respect_notes:
+        missing.append("note")
+    missing.extend(["investment", "Tier 5", "strong stat profile"])
+    reason = f"no {', '.join(missing[:-1])}, or {missing[-1]} found"
     if armor_context:
         reason += f"; {armor_context}"
     if total:
@@ -572,6 +603,10 @@ def _preserve_tag(current_tag: str) -> str:
     return current_tag if current_tag in {"favorite", "keep"} else "keep"
 
 
+def _has_legacy_keep_intent(current_tag: str) -> bool:
+    return current_tag in {"favorite", "keep"}
+
+
 def _is_locked(row: dict[str, str]) -> bool:
     value = (row.get("Locked") or row.get("Lock") or "").strip().lower()
     return value in {"true", "yes", "y", "locked", "1"}
@@ -584,7 +619,7 @@ def _intent_signals(row: dict[str, str], config: AuditConfig) -> list[str]:
     current_tag = row.get("Tag") or ""
     if current_tag:
         signals.append(f"current-tag:{current_tag}")
-    notes = row.get("Notes") or ""
+    notes = (row.get("Notes") or "") if config.respect_notes else ""
     if notes:
         signals.append("notes")
     power = int_field(row, "Power")

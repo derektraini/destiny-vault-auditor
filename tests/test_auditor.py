@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import csv
+import http.client
 import json
 import subprocess
 import sys
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 
@@ -19,7 +21,9 @@ from auditor.armor_analysis import analyze_armor
 from auditor.armor_sets import load_armor_set_ratings
 from auditor.destiny_report import load_destiny_report
 from auditor.dim_csv import read_csv
+from auditor.duplicates import apply_duplicate_grouping
 from auditor.scoring import AuditConfig, recommend, recommend_armor
+from auditor.wizard import create_wizard_server
 from auditor.wishlist import load_wishlist
 
 
@@ -48,6 +52,56 @@ class AuditorTests(unittest.TestCase):
         self.assertEqual(recs["armor-3"].bucket, "protect")
         self.assertEqual(recs["armor-4"].bucket, "needs-review")
         self.assertEqual(recs["armor-5"].bucket, "needs-review")
+
+    def test_armor_notes_with_strong_legacy_intent_are_auto_preserved(self) -> None:
+        _, rows = read_csv(FIXTURES / "synthetic_dim_armor.csv")
+        strong_armor = dict(rows[0])
+        strong_armor["Tag"] = "keep"
+        strong_armor["Notes"] = "legacy build piece"
+
+        rec = recommend_armor(strong_armor)
+
+        self.assertEqual(rec.bucket, "protect")
+        self.assertEqual(rec.tag, "keep")
+        self.assertIn("legacy armor note", rec.reason)
+        self.assertIn("returning-guardian:auto-preserve-note", rec.signals)
+
+    def test_armor_notes_without_strong_fit_still_need_review(self) -> None:
+        _, rows = read_csv(FIXTURES / "synthetic_dim_armor.csv")
+        weak_armor = dict(rows[1])
+        weak_armor["Tag"] = "keep"
+        weak_armor["Notes"] = "maybe old build piece"
+
+        rec = recommend_armor(weak_armor)
+
+        self.assertEqual(rec.bucket, "needs-review")
+        self.assertIn("personal note", rec.reason)
+
+    def test_ignored_armor_notes_do_not_force_review(self) -> None:
+        _, rows = read_csv(FIXTURES / "synthetic_dim_armor.csv")
+        weak_armor = dict(rows[1])
+        weak_armor["Tag"] = "keep"
+        weak_armor["Notes"] = "stale DIM test note"
+
+        rec = recommend_armor(weak_armor, AuditConfig(notes_behavior="ignore"))
+
+        self.assertEqual(rec.bucket, "junk")
+        self.assertNotIn("personal note", rec.reason)
+        self.assertNotIn("notes", rec.signals)
+
+    def test_ignored_weapon_notes_do_not_force_pvp_review(self) -> None:
+        _, rows = read_csv(FIXTURES / "synthetic_dim_weapons.csv")
+        row = dict(rows[-1])
+        row["Notes"] = "PVP test note from an old pass"
+        row["Perks 1"] = "Incandescent"
+
+        respected = recommend(row, None, AuditConfig())
+        ignored = recommend(row, None, AuditConfig(notes_behavior="ignore"))
+
+        self.assertEqual(respected.bucket, "needs-review")
+        self.assertIn("personal PvP note", respected.reason)
+        self.assertEqual(ignored.bucket, "junk")
+        self.assertNotIn("notes", ignored.signals)
 
     def test_armor_set_ratings_affect_scoring(self) -> None:
         _, rows = read_csv(FIXTURES / "synthetic_dim_armor.csv")
@@ -181,6 +235,62 @@ class AuditorTests(unittest.TestCase):
                 with (out_dir / name).open(newline="", encoding="utf-8") as handle:
                     self.assertEqual(csv.DictReader(handle).fieldnames, ["Name", "Hash", "Id", "Tag", "Notes"])
 
+    def test_cli_autodetects_dragged_dim_csvs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            out_dir = Path(tmp) / "out"
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "auditor.cli",
+                    str(FIXTURES / "synthetic_dim_weapons.csv"),
+                    str(FIXTURES / "synthetic_dim_armor.csv"),
+                    "--out-dir",
+                    str(out_dir),
+                ],
+                cwd=ROOT,
+                env={"PYTHONPATH": str(SRC)},
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+
+            self.assertIn("Reviewed 12 items", result.stdout)
+            self.assertTrue((out_dir / "dim-import-weapons.csv").exists())
+            self.assertTrue((out_dir / "dim-import-armor.csv").exists())
+
+    def test_cli_discovers_default_dim_exports(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            export_dir = tmp_path / "dim-exports"
+            export_dir.mkdir()
+            (export_dir / "weapons.private.csv").write_text(
+                (FIXTURES / "synthetic_dim_weapons.csv").read_text(encoding="utf-8"),
+                encoding="utf-8",
+            )
+            (export_dir / "armor.private.csv").write_text(
+                (FIXTURES / "synthetic_dim_armor.csv").read_text(encoding="utf-8"),
+                encoding="utf-8",
+            )
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "auditor.cli",
+                    "--out-dir",
+                    str(tmp_path / "out"),
+                ],
+                cwd=tmp_path,
+                env={"PYTHONPATH": str(SRC)},
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+
+            self.assertIn("Reviewed 12 items", result.stdout)
+            self.assertTrue((tmp_path / "out" / "dim-import.csv").exists())
+
     def test_cli_reports_duplicate_groups_and_preserves_one_copy(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             out_dir = Path(tmp)
@@ -226,6 +336,39 @@ class AuditorTests(unittest.TestCase):
             html = (out_dir / "vault-review.html").read_text(encoding="utf-8")
             self.assertIn("Duplicate Queue", html)
             self.assertIn("duplicateSummary", html)
+
+    def test_ignored_notes_do_not_protect_duplicate_copies(self) -> None:
+        _, rows = read_csv(FIXTURES / "synthetic_dim_weapons.csv")
+        best_row = dict(rows[-1])
+        copy_row = dict(rows[-1])
+        best_row["Id"] = "best-copy"
+        best_row["Notes"] = ""
+        copy_row["Id"] = "noted-copy"
+        copy_row["Notes"] = "stale duplicate note"
+        best_rec = recommend(best_row, None)
+        copy_rec = recommend(copy_row, None)
+        best_rec.bucket = "protect"
+        best_rec.tag = "favorite"
+        copy_rec.bucket = "keep"
+        copy_rec.tag = "keep"
+
+        apply_duplicate_grouping(
+            [(best_row, best_rec), (copy_row, copy_rec)],
+            AuditConfig(duplicate_pruning="prune-hard", notes_behavior="respect"),
+        )
+        self.assertEqual(copy_rec.bucket, "keep")
+
+        best_rec = recommend(best_row, None)
+        copy_rec = recommend(copy_row, None, AuditConfig(notes_behavior="ignore"))
+        best_rec.bucket = "protect"
+        best_rec.tag = "favorite"
+        copy_rec.bucket = "keep"
+        copy_rec.tag = "keep"
+        apply_duplicate_grouping(
+            [(best_row, best_rec), (copy_row, copy_rec)],
+            AuditConfig(duplicate_pruning="prune-hard", notes_behavior="ignore"),
+        )
+        self.assertEqual(copy_rec.bucket, "junk")
 
     def test_wishlist_loader_supports_json_and_csv(self) -> None:
         _, rows = read_csv(FIXTURES / "synthetic_dim_weapons.csv")
@@ -443,6 +586,28 @@ class AuditorTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("inside the repo but is not ignored by Git", result.stderr)
 
+    def test_cli_explains_documentation_placeholder_paths(self) -> None:
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "auditor.cli",
+                "--weapons-csv",
+                str(FIXTURES / "synthetic_dim_weapons.csv"),
+                "--destiny-report-json",
+                "path/to/destiny-report-weapons.json",
+            ],
+            cwd=ROOT,
+            env={"PYTHONPATH": str(SRC)},
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("omit --destiny-report-json", result.stderr)
+        self.assertIn("documentation placeholder", result.stderr)
+
     def test_no_install_wrapper_shows_help(self) -> None:
         result = subprocess.run(
             [sys.executable, "scripts/destiny-vault-auditor.py", "--help"],
@@ -453,6 +618,104 @@ class AuditorTests(unittest.TestCase):
         )
 
         self.assertIn("Audit DIM weapon and armor CSVs", result.stdout)
+        self.assertIn("start", result.stdout)
+
+    def test_start_subcommand_shows_wizard_help(self) -> None:
+        result = subprocess.run(
+            [sys.executable, "scripts/destiny-vault-auditor.py", "start", "--help"],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=True,
+        )
+
+        self.assertIn("Start the local Destiny Vault Auditor wizard", result.stdout)
+        self.assertIn("--no-open", result.stdout)
+
+    def test_wizard_audits_uploads_and_exports_dim_csv(self) -> None:
+        server = create_wizard_server("127.0.0.1", 0)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        host, port = server.server_address
+        try:
+            status, source_payload, _ = _request(host, port, "GET", "/api/sources", b"", {})
+            self.assertEqual(status, 200, source_payload.decode("utf-8"))
+            source_states = json.loads(source_payload.decode("utf-8"))["sources"]
+            self.assertTrue(any(source["label"] == "armor set rating sheet" for source in source_states))
+            self.assertTrue(all(source["status"] in {"cached", "unavailable"} for source in source_states))
+
+            status, favicon_payload, _ = _request(host, port, "GET", "/favicon.ico", b"", {})
+            self.assertEqual(status, 204, favicon_payload.decode("utf-8"))
+
+            status, html_payload, _ = _request(host, port, "GET", "/", b"", {})
+            self.assertEqual(status, 200, html_payload.decode("utf-8"))
+            html = html_payload.decode("utf-8")
+            self.assertIn("Approve visible", html)
+            self.assertIn("Refresh sources", html)
+            self.assertIn("Audit style", html)
+            self.assertIn("Returning Guardian", html)
+            self.assertIn("Use existing DIM notes as intent", html)
+            self.assertIn("notes_behavior", html)
+            self.assertIn("Advanced rules", html)
+            self.assertIn("presetRules", html)
+            self.assertIn("review-progress", html)
+            self.assertIn("audit-summary", html)
+            self.assertIn("data-bucket-filter", html)
+            self.assertIn("bucketCountsForContext", html)
+            self.assertIn("duplicateSummaryForVisible", html)
+            self.assertIn("matchesGlobalFilters", html)
+            self.assertIn("queuebar", html)
+            self.assertIn("cached", html)
+
+            status, payload, _ = _post_multipart(
+                host,
+                port,
+                "/api/audit",
+                {
+                    "cleanup_mode": "clean-slate",
+                    "locked_behavior": "review",
+                    "duplicate_pruning": "balanced",
+                    "old_vs_new": "balanced",
+                    "pvp_caution": "balanced",
+                    "notes_behavior": "ignore",
+                },
+                [
+                    ("files", "synthetic_dim_weapons.csv", (FIXTURES / "synthetic_dim_weapons.csv").read_bytes()),
+                    ("files", "synthetic_dim_armor.csv", (FIXTURES / "synthetic_dim_armor.csv").read_bytes()),
+                ],
+            )
+            self.assertEqual(status, 200, payload.decode("utf-8"))
+            audit = json.loads(payload.decode("utf-8"))
+            self.assertEqual(len(audit["recommendations"]), 12)
+            self.assertEqual(audit["config"]["notes_behavior"], "ignore")
+            self.assertIn("DIM weapons CSV", audit["sources"])
+            self.assertIn("DIM armor CSV", audit["sources"])
+
+            for rec in audit["recommendations"]:
+                if rec["item_id"] == "item-2":
+                    rec["tag"] = "keep"
+                    rec["comment"] = "Manual wizard review: keep this one."
+                    rec["approved"] = True
+                    break
+
+            status, csv_payload, headers = _post_json(
+                host,
+                port,
+                "/api/export-dim",
+                {"run_id": audit["run_id"], "recommendations": audit["recommendations"]},
+            )
+            self.assertEqual(status, 200, csv_payload.decode("utf-8"))
+            self.assertEqual(headers.get("content-type"), "text/csv; charset=utf-8")
+            rows = {
+                row["Id"]: row
+                for row in csv.DictReader(csv_payload.decode("utf-8").splitlines())
+            }
+            self.assertEqual(rows["item-2"]["Tag"], "keep")
+            self.assertEqual(rows["item-2"]["Notes"], "Manual wizard review: keep this one.")
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=5)
 
     def test_plugin_scaffold_wraps_local_cli(self) -> None:
         manifest_path = PLUGIN / ".codex-plugin" / "plugin.json"
@@ -476,6 +739,74 @@ class AuditorTests(unittest.TestCase):
 
         self.assertIn("Audit DIM weapon and armor CSVs", result.stdout)
         self.assertIn("--wishlist-source", result.stdout)
+
+
+def _post_multipart(
+    host: str,
+    port: int,
+    path: str,
+    fields: dict[str, str],
+    files: list[tuple[str, str, bytes]],
+) -> tuple[int, bytes, dict[str, str]]:
+    boundary = "----dva-test-boundary"
+    chunks: list[bytes] = []
+    for name, value in fields.items():
+        chunks.extend(
+            [
+                f"--{boundary}\r\n".encode("utf-8"),
+                f'Content-Disposition: form-data; name="{name}"\r\n\r\n'.encode("utf-8"),
+                value.encode("utf-8"),
+                b"\r\n",
+            ]
+        )
+    for name, filename, payload in files:
+        chunks.extend(
+            [
+                f"--{boundary}\r\n".encode("utf-8"),
+                f'Content-Disposition: form-data; name="{name}"; filename="{filename}"\r\n'.encode("utf-8"),
+                b"Content-Type: text/csv\r\n\r\n",
+                payload,
+                b"\r\n",
+            ]
+        )
+    chunks.append(f"--{boundary}--\r\n".encode("utf-8"))
+    return _request(
+        host,
+        port,
+        "POST",
+        path,
+        b"".join(chunks),
+        {"Content-Type": f"multipart/form-data; boundary={boundary}"},
+    )
+
+
+def _post_json(host: str, port: int, path: str, payload: dict[str, object]) -> tuple[int, bytes, dict[str, str]]:
+    return _request(
+        host,
+        port,
+        "POST",
+        path,
+        json.dumps(payload).encode("utf-8"),
+        {"Content-Type": "application/json"},
+    )
+
+
+def _request(
+    host: str,
+    port: int,
+    method: str,
+    path: str,
+    body: bytes,
+    headers: dict[str, str],
+) -> tuple[int, bytes, dict[str, str]]:
+    connection = http.client.HTTPConnection(host, port, timeout=20)
+    try:
+        connection.request(method, path, body=body, headers=headers)
+        response = connection.getresponse()
+        payload = response.read()
+        return response.status, payload, {key.lower(): value for key, value in response.getheaders()}
+    finally:
+        connection.close()
 
 
 if __name__ == "__main__":

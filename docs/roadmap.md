@@ -4,7 +4,29 @@ This roadmap records completed milestones and future follow-up ideas. The goal i
 
 ## Recommended Order
 
-All MVP workflow milestones are implemented. Future passes should focus on optional source refresh helpers, richer source curation, and local usability polish.
+The first local wizard milestone is implemented. Future passes should focus on source refresh helpers, richer source curation, and review UX polish inside the browser flow.
+
+## Completed: Local Browser Wizard First Milestone
+
+Status: implemented.
+
+Why it mattered: the normal workflow should feel like a local app, not a chain of CLI invocations and manually passed artifact paths.
+
+Implemented:
+
+- Added `python3 scripts/destiny-vault-auditor.py start`.
+- Started a local-only browser wizard on `127.0.0.1`.
+- Added drag/drop or file picker upload for DIM CSV exports.
+- Reused the existing CSV auto-detection and audit engine.
+- Used cached files under `source-cache/` where available.
+- Added in-browser review/edit of proposed DIM tags and notes.
+- Added direct export of the final `dim-import.csv` from the browser without a second user command.
+
+Acceptance criteria:
+
+- A tester can launch one command, choose DIM CSVs, run the audit, edit recommendations, and download a DIM import CSV.
+- The advanced CLI flags still work for automation.
+- No OAuth, DIM Sync writes, hosted upload, or gear actions are introduced.
 
 ## Completed: Reviewed Decisions To Final CSV
 

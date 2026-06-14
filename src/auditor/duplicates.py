@@ -70,7 +70,7 @@ def _candidate(row: dict[str, str], rec: Recommendation) -> DuplicateCandidate |
 
 
 def _apply_group(group_id: str, candidates: list[DuplicateCandidate], config: AuditConfig) -> None:
-    ranked = sorted(candidates, key=_score_candidate, reverse=True)
+    ranked = sorted(candidates, key=lambda candidate: _score_candidate(candidate, config), reverse=True)
     best = ranked[0]
     label = best.label
     size = len(candidates)
@@ -123,7 +123,7 @@ def _apply_group(group_id: str, candidates: list[DuplicateCandidate], config: Au
             rec.reason = _append_reason(rec.reason, f"duplicate copy in group of {size}; best copy is {best.rec.name}")
 
 
-def _score_candidate(candidate: DuplicateCandidate) -> int:
+def _score_candidate(candidate: DuplicateCandidate, config: AuditConfig) -> int:
     rec = candidate.rec
     row = candidate.row
     score = {
@@ -142,7 +142,7 @@ def _score_candidate(candidate: DuplicateCandidate) -> int:
         score += 35
     if _is_locked(row):
         score += 25
-    if row.get("Notes"):
+    if config.respect_notes and row.get("Notes"):
         score += 15
     if rec.kind == "armor":
         total = _first_int(row, ("Total", "Base Total", "Stat Total", "Stats Total"))
@@ -156,7 +156,7 @@ def _has_protective_intent(row: dict[str, str], rec: Recommendation, config: Aud
         return True
     if is_crafted(row) or int_field(row, "Crafted Level") > config.invested_level_threshold:
         return True
-    if _is_locked(row) or row.get("Notes"):
+    if _is_locked(row) or (config.respect_notes and row.get("Notes")):
         return True
     if row.get("Rarity") == "Exotic":
         return True

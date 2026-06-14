@@ -45,14 +45,33 @@ REQUIRED_ARMOR_FIELDS = {
 DIM_IMPORT_FIELDS = ["Name", "Hash", "Id", "Tag", "Notes"]
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Audit DIM weapon and armor CSVs and generate review artifacts.")
+def main(argv: list[str] | None = None) -> None:
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if argv and argv[0] == "start":
+        _start_wizard(argv[1:])
+        return
+
+    parser = argparse.ArgumentParser(
+        description="Audit DIM weapon and armor CSVs and generate review artifacts.",
+        epilog="Run `python3 scripts/destiny-vault-auditor.py start` for the local browser wizard.",
+    )
+    parser.add_argument(
+        "dim_csvs",
+        nargs="*",
+        type=Path,
+        metavar="DIM_CSV",
+        help="DIM export CSV files to auto-detect. You can drag weapons and armor CSVs here.",
+    )
     parser.add_argument("--weapons-csv", type=Path, help="DIM weapon CSV export.")
     parser.add_argument("--armor-csv", type=Path, help="DIM armor CSV export.")
-    parser.add_argument("--destiny-report-json", type=Path, help="destiny.report weapon JSON export.")
-    parser.add_argument("--armor-set-ratings-csv", type=Path, help="Armor set rating sheet CSV export.")
-    parser.add_argument("--wishlist-source", type=Path, help="Local wishlist/triage JSON or CSV source.")
-    parser.add_argument("--review-decisions-json", type=Path, help="Reviewed decisions JSON exported from vault-review.html.")
+    parser.add_argument("--destiny-report-json", type=Path, help="Optional destiny.report weapon JSON export.")
+    parser.add_argument("--armor-set-ratings-csv", type=Path, help="Optional armor set rating sheet CSV export.")
+    parser.add_argument("--wishlist-source", type=Path, help="Optional local wishlist/triage JSON or CSV source.")
+    parser.add_argument(
+        "--review-decisions-json",
+        type=Path,
+        help="Optional reviewed decisions JSON exported from vault-review.html.",
+    )
     parser.add_argument("--out-dir", type=Path, default=Path("outputs"), help="Output directory.")
     parser.add_argument(
         "--cleanup-mode",
@@ -87,6 +106,12 @@ def main() -> None:
         help="How cautiously to treat PvP notes and feel rolls.",
     )
     parser.add_argument(
+        "--notes-behavior",
+        choices=("respect", "ignore"),
+        default="respect",
+        help="Whether existing DIM notes count as user intent during the audit.",
+    )
+    parser.add_argument(
         "--low-power-below",
         type=int,
         default=0,
@@ -97,19 +122,42 @@ def main() -> None:
         action="store_true",
         help="Allow a DIM export inside the repo even if Git does not ignore it.",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
+
+    _apply_dim_csv_shortcuts(parser, args)
 
     if not args.weapons_csv and not args.armor_csv:
-        parser.error("provide --weapons-csv, --armor-csv, or both")
+        parser.error(
+            "add a DIM export CSV. Drag weapons/armor CSV files onto this command, "
+            "put them in dim-exports/, or pass --weapons-csv/--armor-csv."
+        )
 
     if args.destiny_report_json:
-        _validate_source_path(parser, args.destiny_report_json, "destiny.report JSON", ".json")
+        _validate_source_path(
+            parser,
+            args.destiny_report_json,
+            "destiny.report JSON",
+            ".json",
+            missing_hint="Replace it with a real destiny.report JSON export, or omit --destiny-report-json.",
+        )
     if args.armor_set_ratings_csv:
-        _validate_source_path(parser, args.armor_set_ratings_csv, "armor set ratings CSV", ".csv")
+        _validate_source_path(
+            parser,
+            args.armor_set_ratings_csv,
+            "armor set ratings CSV",
+            ".csv",
+            missing_hint="Run the README curl command first, replace the path, or omit --armor-set-ratings-csv.",
+        )
     if args.wishlist_source:
         _validate_wishlist_path(parser, args.wishlist_source)
     if args.review_decisions_json:
-        _validate_source_path(parser, args.review_decisions_json, "review decisions JSON", ".json")
+        _validate_source_path(
+            parser,
+            args.review_decisions_json,
+            "review decisions JSON",
+            ".json",
+            missing_hint="Export decisions JSON from vault-review.html, replace the path, or omit --review-decisions-json.",
+        )
 
     destiny_report = load_destiny_report(args.destiny_report_json) if args.destiny_report_json else None
     armor_sets = load_armor_set_ratings(args.armor_set_ratings_csv) if args.armor_set_ratings_csv else None
@@ -123,6 +171,7 @@ def main() -> None:
         duplicate_pruning=args.duplicate_pruning,
         old_vs_new=args.old_vs_new,
         pvp_caution=args.pvp_caution,
+        notes_behavior=args.notes_behavior,
         low_power_below=args.low_power_below,
     )
 
@@ -285,6 +334,61 @@ def _rank_for_reviewed_decision(bucket: str, tag: str) -> str:
     return "keep"
 
 
+def _apply_dim_csv_shortcuts(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
+    if args.dim_csvs:
+        for path in args.dim_csvs:
+            _assign_detected_dim_csv(parser, args, path)
+        return
+
+    if args.weapons_csv or args.armor_csv:
+        return
+
+    export_dir = Path("dim-exports")
+    if not export_dir.exists():
+        return
+
+    preferred = [export_dir / "weapons.private.csv", export_dir / "armor.private.csv"]
+    candidates = [path for path in preferred if path.exists()]
+    if not candidates:
+        candidates = sorted(export_dir.glob("*.csv"))
+
+    for path in candidates:
+        _assign_detected_dim_csv(parser, args, path)
+
+
+def _assign_detected_dim_csv(parser: argparse.ArgumentParser, args: argparse.Namespace, path: Path) -> None:
+    _validate_input_path(parser, path, args.allow_unignored_input, "DIM CSV")
+    fields, _ = read_csv(path)
+    kind = _detect_dim_csv_kind(fields)
+    if kind == "weapons":
+        if args.weapons_csv and args.weapons_csv != path:
+            parser.error(f"multiple weapon CSVs provided: {args.weapons_csv} and {path}")
+        args.weapons_csv = path
+        return
+    if kind == "armor":
+        if args.armor_csv and args.armor_csv != path:
+            parser.error(f"multiple armor CSVs provided: {args.armor_csv} and {path}")
+        args.armor_csv = path
+        return
+    parser.error(
+        f"could not tell whether this DIM CSV is weapons or armor: {path}. "
+        "Export separate weapon and armor CSV files from DIM."
+    )
+
+
+def _detect_dim_csv_kind(fields: list[str]) -> str | None:
+    field_set = set(fields)
+    weapon_specific = {"Ammo", "Crafted", "Crafted Level", "Kill Tracker"}
+    armor_specific = {"Energy Capacity", "Class", "Tuning Stat", "Tertiary Stat", "Total", "Weapons", "Health"}
+    looks_weapon = REQUIRED_WEAPON_FIELDS.issubset(field_set) and bool(field_set & weapon_specific)
+    looks_armor = REQUIRED_ARMOR_FIELDS.issubset(field_set) and bool(field_set & armor_specific)
+    if looks_weapon and not looks_armor:
+        return "weapons"
+    if looks_armor and not looks_weapon:
+        return "armor"
+    return None
+
+
 def _validate_input_path(parser: argparse.ArgumentParser, path: Path, allow_unignored: bool, label: str) -> None:
     if not path.exists():
         parser.error(f"{label} does not exist: {path}")
@@ -313,18 +417,42 @@ def _validate_input_path(parser: argparse.ArgumentParser, path: Path, allow_unig
     )
 
 
-def _validate_source_path(parser: argparse.ArgumentParser, path: Path, label: str, suffix: str) -> None:
+def _validate_source_path(
+    parser: argparse.ArgumentParser,
+    path: Path,
+    label: str,
+    suffix: str,
+    missing_hint: str,
+) -> None:
     if not path.exists():
-        parser.error(f"{label} does not exist: {path}")
+        parser.error(_missing_source_message(path, label, missing_hint))
     if path.suffix.lower() != suffix:
         parser.error(f"{label} must be a {suffix} file: {path}")
 
 
 def _validate_wishlist_path(parser: argparse.ArgumentParser, path: Path) -> None:
     if not path.exists():
-        parser.error(f"wishlist/triage source does not exist: {path}")
+        parser.error(
+            _missing_source_message(
+                path,
+                "wishlist/triage source",
+                "Create the local wishlist/triage file, replace the path, or omit --wishlist-source.",
+            )
+        )
     if path.suffix.lower() not in {".json", ".csv"}:
         parser.error(f"wishlist/triage source must be a .json or .csv file: {path}")
+
+
+def _missing_source_message(path: Path, label: str, hint: str) -> str:
+    message = f"{label} does not exist: {path}. {hint}"
+    if _looks_like_placeholder_path(path):
+        message += " This looks like a documentation placeholder, not a file on disk."
+    return message
+
+
+def _looks_like_placeholder_path(path: Path) -> bool:
+    parts = tuple(part.lower() for part in path.parts)
+    return parts[:2] == ("path", "to")
 
 
 def _validate_weapon_csv(parser: argparse.ArgumentParser, fields: list[str], rows: list[dict[str, str]]) -> None:
@@ -373,6 +501,18 @@ def _git_ignores(repo_root: Path, relative: Path) -> bool:
 
 def _is_allowed_repo_fixture(relative: Path) -> bool:
     return relative.parts[:2] == ("tests", "fixtures")
+
+
+def _start_wizard(argv: list[str]) -> None:
+    parser = argparse.ArgumentParser(description="Start the local Destiny Vault Auditor wizard.")
+    parser.add_argument("--host", default="127.0.0.1", help="Host interface for the local wizard.")
+    parser.add_argument("--port", type=int, default=8765, help="Port for the local wizard.")
+    parser.add_argument("--no-open", action="store_true", help="Do not automatically open the browser.")
+    args = parser.parse_args(argv)
+
+    from .wizard import start_wizard
+
+    start_wizard(host=args.host, port=args.port, open_browser=not args.no_open)
 
 
 if __name__ == "__main__":
